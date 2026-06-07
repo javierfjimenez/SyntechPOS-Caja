@@ -1,0 +1,48 @@
+{
+    "_meta": {
+        "descripcion": "Evento sale.completed de ejemplo, EXACTO al contrato (eventos-sync.md §4.1). La caja debe producir esta forma; el servidor lo valida contra su JSON Schema.",
+        "nota": "signature es ilustrativa — se calcula con el hmac_secret real del terminal (eventos-sync.md §3)"
+    },
+    "ulid": "01JX5K3M5PQRS7TVWXYZ012345",
+    "type": "sale.completed",
+    "schema_version": 1,
+    "occurred_at": "2026-06-06T14:32:05-04:00",
+    "payload": {
+        "sale_ulid": "01JX5K3KZ0AAAAAAAAAAAAAAAA",
+        "ticket_number": 1042,
+        "cash_session_ulid": "01JX5HQ70BBBBBBBBBBBBBBBBB",
+        "cashier_user_id": 7,
+        "type": "sale",
+        "ref_sale_ulid": null,
+        "is_credit": false,
+        "customer_id": null,
+        "customer": null,
+        "lines": [
+            {
+                "product_id": 88,
+                "department_id": 3,
+                "description": "Arroz Selecto 5lb",
+                "quantity": "2.000",
+                "unit_price": "75.00",
+                "discount_amount": "0.00",
+                "tax_category": "ITBIS18",
+                "tax_rate": "18.00",
+                "taxable_base": "127.12",
+                "tax_amount": "22.88",
+                "total": "150.00",
+                "unit_cost": "61.5000"
+            }
+        ],
+        "payments": [
+            { "method_code": "cash", "amount": "150.00", "amount_tendered": "200.00", "reference": null }
+        ],
+        "totals": {
+            "taxed18_base": "127.12", "taxed18_itbis": "22.88",
+            "taxed16_base": "0.00", "taxed16_itbis": "0.00",
+            "taxed0_base": "0.00", "exempt_base": "0.00",
+            "discount_total": "0.00", "total": "150.00"
+        },
+        "supervisor_user_id": null
+    },
+    "signature": "3f8a9c0000000000000000000000000000000000000000000000000000000000"
+}

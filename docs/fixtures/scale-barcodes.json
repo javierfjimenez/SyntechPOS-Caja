@@ -1,0 +1,80 @@
+{
+    "_meta": {
+        "descripcion": "Casos de prueba CANONICOS del parser EAN-13 de balanza (prefijo 2X). La implementacion TS de la caja DEBE pasar todos.",
+        "fuente": "server\/app\/Services\/Catalog\/ScaleBarcodeParser.php (implementacion canonica, tests en tests\/Unit\/ScaleBarcodeParserTest.php)",
+        "estructura": "code: EAN-13 | format: weight|price | expect: null o {productCode, weight, price}"
+    },
+    "valid": [
+        {
+            "code": "2000123003450",
+            "format": "weight",
+            "expect": {
+                "productCode": "00123",
+                "weight": "0.345",
+                "price": null
+            }
+        },
+        {
+            "code": "2000123125503",
+            "format": "price",
+            "expect": {
+                "productCode": "00123",
+                "weight": null,
+                "price": "125.50"
+            }
+        },
+        {
+            "code": "2500777015002",
+            "format": "weight",
+            "expect": {
+                "productCode": "00777",
+                "weight": "1.500",
+                "price": null
+            }
+        },
+        {
+            "code": "2900001999991",
+            "format": "weight",
+            "expect": {
+                "productCode": "00001",
+                "weight": "99.999",
+                "price": null
+            }
+        },
+        {
+            "code": "2145678000506",
+            "format": "price",
+            "expect": {
+                "productCode": "45678",
+                "weight": null,
+                "price": "0.50"
+            }
+        }
+    ],
+    "invalid": [
+        {
+            "code": "2000123003451",
+            "format": "weight",
+            "expect": null,
+            "motivo": "checksum invalido"
+        },
+        {
+            "code": "7461234567890",
+            "format": "weight",
+            "expect": null,
+            "motivo": "EAN-13 normal, no es de balanza"
+        },
+        {
+            "code": "20012",
+            "format": "weight",
+            "expect": null,
+            "motivo": "muy corto"
+        },
+        {
+            "code": "2A012300345X9",
+            "format": "weight",
+            "expect": null,
+            "motivo": "no numerico"
+        }
+    ]
+}
