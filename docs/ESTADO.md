@@ -24,12 +24,21 @@
 
 ## Preguntas abiertas (para aterrizar en SyntechPOS si aplica)
 
+- [ ] **426/X-Client-Version sin implementar server-side**: eventos-sync.md §2 exige el header y el `426 Upgrade Required` bajo `min_client_version`, pero NINGUNA ruta del servidor (`@ad9c1dd`) lee el header ni responde 426. La caja ya envía el header en toda llamada y respetará `min_client_version` client-side (4.12) — el middleware falta en el servidor
+- [ ] **`barcodes` en el delta: spec desactualizado**: eventos-sync.md §7.1 ejemplifica `"barcodes": ["746…"]` (strings), pero la implementación (y su test) devuelve objetos `[{ "barcode": "746…" }]`. `endpoints.md` refleja la implementación; el ejemplo del spec debe corregirse en SyntechPOS
 - [x] ~~Lockout de PIN~~ ✅ RESPONDIDA en SyntechPOS@8f71b2a: ui-caja §3 reformulado a espera POR TERMINAL (lo implementado es lo correcto); el bloqueo atribuible lo hará el servidor al reconciliar
 - [x] ~~Réplica de usuarios~~ ✅ RESPONDIDA en SyntechPOS@8f71b2a: los usuarios bajan en `GET /sync/catalog` (no en bootstrap) con `id, name, role, pin_hash, is_active, row_version` — el seed dev de 4.1 se reemplaza por el delta real en 4.2
 
 ---
 
 ## Bitácora
+
+### 2026-06-06 — endpoints.md validado contra el servidor real (@ad9c1dd)
+
+- Los 6 endpoints de `docs/endpoints.md` cotejados contra routes + controllers + tests del servidor: **todo coincide** (shapes, códigos, throttle, página 500, lote 50, statuses de e-CF, campos de bootstrap incl. `scale_format` con default `weight`)
+- **Vector de firma HMAC reproducido byte a byte en Node** (claves ordenadas + `JSON.stringify` + HMAC-SHA256): `cadena_canonica_sha256` y `signature_esperada` de `fixtures/firma-hmac.json` coinciden — la réplica TS de 4.2/4.7 es viable tal como la describe el spec
+- 2 hallazgos para SyntechPOS (ver Preguntas abiertas): 426/X-Client-Version sin implementar server-side; ejemplo de `barcodes` desactualizado en eventos-sync §7.1
+- Nota de consumo: las filas del delta traen MÁS columnas que las del ejemplo (p. ej. `products` incluye `cost`, `sku`; `barcodes` trae `id`/`product_id`) — la caja toma lo que necesita e ignora el resto
 
 ### 2026-06-06 — 4.1: esqueleto, vinculación, login PIN y kiosk
 
