@@ -5,8 +5,8 @@
 ## 📍 AHORA
 
 - **Fase actual**: FASE 4 — POS de caja
-- **Tarea actual**: 4.7 COMPLETA — el ciclo caja→servidor cerrado y probado e2e. 4.5 sigue pendiente solo del hardware (conectar la 2Connect → F10 → Impresora → prueba)
-- **Siguiente tarea**: 4.6 cierre de sesión (arqueo CIEGO + reporte Z + retiros) — con el worker vivo, cash_session.closed viajará solo
+- **Tarea actual**: 4.6 COMPLETA — la jornada entera funciona: apertura → ventas → retiros → arqueo ciego → Z → login. 4.5 sigue pendiente solo del hardware
+- **Siguiente tarea**: 4.8 Devoluciones (NC tipo 34 con PIN supervisor) o 4.9 Contingencia/reimpresión — ambas necesitan datos de e-CF del servidor
 - **Bloqueos**: ninguno
   - [ ] Pendiente menor: `nvm alias default 22`
   - [ ] Deuda de CA 4.2: correr `php artisan db:seed --class=BulkCatalogSeeder` y medir el pull de 10k
@@ -16,7 +16,7 @@
 
 (ver CLAUDE.md — se marca aquí el avance)
 
-- [x] 4.1 · [x] 4.2 · [x] 4.3 · [x] 4.4 · [~] 4.5 (falta validar con hardware) · [~] 4.6 (apertura adelantada) · [x] 4.7 · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
+- [x] 4.1 · [x] 4.2 · [x] 4.3 · [x] 4.4 · [~] 4.5 (falta validar con hardware) · [x] 4.6 · [x] 4.7 · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
 
 ## Decisiones locales de implementación (no de contrato)
 
@@ -45,6 +45,15 @@
 ---
 
 ## Bitácora
+
+### 2026-06-07 — 4.6 CERRADA: arqueo ciego, retiros y reportes Z/X
+
+- **Matemática de sesión** (`session-report.ts`, 7 tests): la actividad se relee del OUTBOX (sobrevive crash, nunca diverge de lo que viajó); esperado = fondo + efectivo − retiros − gastos + depósitos; el mixto reparte por método; crédito informativo (no gaveta); eventos de otras sesiones no contaminan
+- **Cierre en 3 pasos** (ui-caja §8): contar SIN ver → declarar (no se puede volver; el esperado se calcula al declarar) → resultado con tabla esperado/declarado/diferencia. **Diferencia ≠ 0 → nota + PIN de supervisor** (D-caja-9: umbral local 0 hasta que settings traiga tolerancia). Z numerado localmente (`next_z_number`) → `cash_session.closed` exacto §4.4 → imprime Z → login
+- **Movimientos de efectivo** (menú F10): retiro/depósito/gasto con motivo → `cash_movement.created` §4.5 → drain inmediato
+- **Reporte X parcial** desde el menú (mismo renderer del Z, sin declarar)
+- **Login**: aviso "la sesión la abrió Ana R. — ¿continuar?" (la sesión no cambia de dueño). **Apertura**: muestra cierre anterior y diferencia del último arqueo
+- Migración 0005 (closed_by/difference/closing_data) · **147 tests**
 
 ### 2026-06-07 — 4.7 CERRADA: el worker del outbox y el ciclo completo probado e2e
 
