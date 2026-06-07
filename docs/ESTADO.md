@@ -5,16 +5,16 @@
 ## 📍 AHORA
 
 - **Fase actual**: FASE 4 — POS de caja
-- **Tarea actual**: 4.1 casi completa — falta probar la vinculación end-to-end contra el servidor local (`composer dev` + código `123456`)
-- **Siguiente tarea**: 4.2 Delta-sync de catálogo — **TODOS los endpoints ya existen en el servidor** (SyntechPOS@8f71b2a): catalog/bootstrap/events/ecf-results + usuarios en el delta. Primer paso: réplica TS del HMAC validada contra `docs/fixtures/firma-hmac.json`
-- **Bloqueos**: ninguno (Rust 1.96 instalado ✓, Xcode CLT ✓, repo en GitHub ✓)
+- **Tarea actual**: 4.2 construida — falta el e2e completo (necesita datos demo en el servidor: productos + un cajero CON PIN; el negocio demo está vacío)
+- **Siguiente tarea**: 4.3 Pantalla de venta (input siempre-enfocado, parser de balanza contra `scale-barcodes.json`, multiplicador `n*`)
+- **Bloqueos**: el seeder demo de SyntechPOS no crea productos ni usuarios con PIN — para probar 4.2/4.3 de verdad hay que sembrar datos allá o crearlos en el panel
   - [ ] Pendiente menor: `nvm alias default 22`
 
 ## Checklist Fase 4
 
 (ver CLAUDE.md — se marca aquí el avance)
 
-- [~] 4.1 · [ ] 4.2 · [ ] 4.3 · [ ] 4.4 · [ ] 4.5 · [ ] 4.6 · [ ] 4.7 · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
+- [x] 4.1 · [~] 4.2 · [ ] 4.3 · [ ] 4.4 · [ ] 4.5 · [ ] 4.6 · [ ] 4.7 · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
 
 ## Decisiones locales de implementación (no de contrato)
 
@@ -32,6 +32,17 @@
 ---
 
 ## Bitácora
+
+### 2026-06-06 — 4.2: delta-sync de catálogo (vinculación e2e OK contra server.test)
+
+- Javier vinculó la caja real contra `https://server.test` (`.env` con `VITE_API_URL`) ✓
+- **Bajada completa**: `getBootstrap`/`getCatalogPage` tipados; réplicas con upserts multi-fila por chunks (CA 10k SKUs); barcodes se REEMPLAZAN por producto; bajas = `is_active=0`
+- **`pullCatalog`**: cursor hasta agotar; guarda la versión de la PRIMERA página y SOLO al cerrar el lote (test: pull interrumpido no guarda nada). Pull al abrir + cada 5 min; sin red falla en silencio
+- **Vinculación** ahora baja bootstrap + catálogo con progreso y REANUDA si quedó a medias (`catalog_synced_at` — un negocio vacío con versión 0 también cuenta como sincronizado, caso real detectado probando contra server.test)
+- **Seed dev eliminado**: los cajeros llegan por el delta con su `pin_hash`; el PIN se asigna en el panel (Usuarios)
+- Probado contra el servidor REAL con el token del terminal vinculado: `/sync/catalog?since=0` y `/sync/bootstrap` responden la forma exacta de endpoints.md ✓
+- **36 tests en verde** · migración 0002 (cost/sku/phone)
+- Notas server-side detectadas: el seeder demo no trae productos ni usuarios con PIN (bloquea el e2e completo); `trade_name` del negocio demo aparece como "Audit Bis 855" (¿polución de tests en la BD de dev?); `server_time` llega en UTC (+00:00) — el spec ejemplifica con offset -04:00; mensajes de validación sin traducir (`validation.required`)
 
 ### 2026-06-06 — endpoints.md validado contra el servidor real (@ad9c1dd)
 
