@@ -103,3 +103,21 @@ export interface BootstrapResult {
 export async function getBootstrap(opts: ApiOptions): Promise<BootstrapResult> {
   return apiRequest<BootstrapResult>("GET", "/sync/bootstrap", undefined, opts);
 }
+
+export interface EcfResultRow {
+  sale_ulid: string;
+  encf: string;
+  security_code: string;
+  dgii_url: string;
+  qr_image: string;
+  status: "sent" | "accepted" | "conditional";
+  cursor: number;
+}
+
+/** e-CF resueltos de ESTE terminal → reimpresión timbrada (§7.2, D9) */
+export async function getEcfResults(
+  since: number,
+  opts: ApiOptions,
+): Promise<{ results: EcfResultRow[]; next_cursor: number | null }> {
+  return apiRequest("GET", `/sync/ecf-results?since=${since}`, undefined, opts);
+}

@@ -62,6 +62,15 @@ export async function markRetry(ulids: string[], nextRetryAt: Date): Promise<voi
   );
 }
 
+/** Todos los sobres de venta/NC del terminal, en orden (búsquedas locales) */
+export async function saleEnvelopes(): Promise<Envelope[]> {
+  const db = await getDb();
+  const rows = await db.select<{ payload: string }[]>(
+    "SELECT payload FROM outbox WHERE type = 'sale.completed' ORDER BY ulid",
+  );
+  return rows.map((r) => JSON.parse(r.payload) as Envelope);
+}
+
 /** Número de ticket local por terminal (uq terminal+ticket_number server-side) */
 export async function nextTicketNumber(): Promise<number> {
   const current = Number((await getMeta("next_ticket_number")) ?? "1");

@@ -35,6 +35,8 @@ export interface TicketData {
   ecf_enabled: boolean;
   /** null = contingencia (sin comprobante aún); solo aplica con ecf_enabled */
   ecf: { encf: string; security_code: string; dgii_url: string } | null;
+  /** NC tipo 34 (4.8): referencia al ticket devuelto */
+  credit_note?: { ref_ticket_number: number } | null;
 }
 
 const money = (s: string) => formatMoney(s);
@@ -57,6 +59,11 @@ export function renderTicket(data: TicketData): Uint8Array {
   t.feed(1);
 
   // ── Identidad del ticket ────────────────────────────────────────────────────
+  if (data.credit_note != null) {
+    t.align(1).bold(true).line("NOTA DE CRÉDITO").bold(false);
+    t.line(`Devolución del ticket #${data.credit_note.ref_ticket_number}`);
+    t.feed(1);
+  }
   t.align(0);
   t.row(`Ticket #${data.ticket_number}`, fecha(data.occurred_at));
   t.row(`Cajero: ${data.cashier_name}`, "");

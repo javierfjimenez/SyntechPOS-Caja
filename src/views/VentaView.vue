@@ -318,6 +318,12 @@ function onFnKeys(e: KeyboardEvent) {
     <ModalBase v-if="modal === 'menu'" @cerrar="modal = null">
       <div class="flex w-80 flex-col gap-2">
         <h2 class="mb-2 text-lg font-bold text-text">Menú</h2>
+        <BotonAccion variante="secundario" @click="router.push({ name: 'devolucion' })">
+          Devolución (PIN supervisor)
+        </BotonAccion>
+        <BotonAccion variante="secundario" @click="router.push({ name: 'estado' })">
+          Estado de la caja
+        </BotonAccion>
         <BotonAccion variante="secundario" @click="modal = 'movimiento'">
           Retiro / gasto de efectivo
         </BotonAccion>

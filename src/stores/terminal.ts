@@ -5,6 +5,7 @@ import { DEFAULT_API_URL } from "@/api/client";
 import { getBootstrap } from "@/api/sync";
 import { linkTerminal, ping } from "@/api/terminals";
 import { getMetaMany, setMeta } from "@/db";
+import { updateRequired } from "@/lib/version";
 
 /**
  * Estado del terminal: vinculación (token + hmac_secret en catalog_meta) y
@@ -26,6 +27,9 @@ interface TerminalState {
   ecfEnabled: boolean; // D21: facturación electrónica opcional por negocio
   /** 401/403 del servidor: terminal desvinculada — flujo de re-vinculación pendiente */
   revoked: boolean;
+  /** 4.12/D14: la app está por debajo de min_client_version (vender SIGUE permitido) */
+  updateRequired: boolean;
+  lastServerContact: number | null;
   online: boolean;
   appVersion: string;
   apiUrl: string;
@@ -57,6 +61,8 @@ export const useTerminalStore = defineStore("terminal", {
     allowDepartmentSale: true,
     ecfEnabled: false, // conservador: sin QR hasta que el bootstrap diga lo contrario
     revoked: false,
+    updateRequired: false,
+    lastServerContact: null,
     online: false,
     appVersion: "0.0.0",
     apiUrl: DEFAULT_API_URL,
@@ -133,16 +139,23 @@ export const useTerminalStore = defineStore("terminal", {
       this.online = false;
     },
 
+    /** El servidor informó su mínimo (ping o respuesta de eventos) */
+    checkMinVersion(minClientVersion: string) {
+      this.updateRequired = updateRequired(this.appVersion, minClientVersion);
+    },
+
     /** Heartbeat: marca online/offline sin bloquear jamás la operación */
     async heartbeat() {
       if (!this.token) return;
       try {
-        await ping({
+        const pong = await ping({
           baseUrl: this.apiUrl,
           appVersion: this.appVersion,
           token: this.token,
         });
         this.online = true;
+        this.lastServerContact = Date.now();
+        this.checkMinVersion(pong.min_client_version);
       } catch {
         this.online = false;
       }

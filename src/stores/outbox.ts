@@ -54,7 +54,8 @@ export const useOutboxStore = defineStore("outbox", {
           markRetry,
           onRevoked: () => terminal.markRevoked(),
           onServerInfo: (info) => {
-            void setMeta("min_client_version", info.min_client_version); // 4.12
+            void setMeta("min_client_version", info.min_client_version);
+            terminal.checkMinVersion(info.min_client_version); // 4.12
           },
         });
         if (summary.sent > 0) {

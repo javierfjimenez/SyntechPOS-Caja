@@ -36,6 +36,9 @@ const conexion = computed(() => {
   if (terminal.revoked) {
     return { color: "text-danger", label: "Atención requerida — terminal desvinculada" };
   }
+  if (terminal.updateRequired) {
+    return { color: "text-warning", label: "Actualización requerida — puedes seguir vendiendo" };
+  }
   return terminal.online
     ? { color: "text-success", label: "En línea" }
     : { color: "text-warning", label: `Sin conexión — ${outbox.pending} pendientes de envío` };
