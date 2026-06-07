@@ -33,7 +33,7 @@
 
 - [x] ~~Seeder sin row_version~~ ✅ RESUELTA en SyntechPOS@3a8fb67: WithoutModelEvents eliminado + test de regresión; además `BulkCatalogSeeder` (10k SKUs con barcode) para medir el CA 4.2: `php artisan db:seed --class=BulkCatalogSeeder`
 - [ ] **Flujo "Terminal desvinculada" sin construir en la caja**: si el servidor revoca el token (401/403), hoy la app queda atrapada con credenciales muertas. Falta la pantalla/flujo de re-vinculación (endpoints.md, códigos transversales) — agendar en 4.x
-- [ ] **D21 (nuevo contrato, SyntechPOS@19d38e9)**: la facturación electrónica es OPCIONAL por negocio — `bootstrap.settings.ecf_enabled`. Cuando es `false`: el ticket va SIN sección de e-NCF/QR ni leyenda de contingencia, la pantalla de Estado no muestra "comprobantes pendientes", y no se espera `/sync/ecf-results`. Aplicar en 4.5 (ticket) y pantalla de Estado
+- [x] ~~D21 ecf_enabled~~ ✅ APLICADA en el ticket (4.5): `settings.ecf_enabled` baja en bootstrap y aplica offline (default conservador false); sin e-CF no hay QR ni leyenda. Queda pendiente aplicarla en la pantalla de Estado (4.10) y en el polling de ecf-results (4.9)
 - [x] ~~Tasa de venta por departamento~~ ✅ RESUELTA en SyntechPOS@3a8fb67: `departments.tax_category` (default ITBIS18; Frutas y Verduras EXENTO en el demo) — ya viaja en el delta; la caja debe usar la tasa del departamento en el modal
 - [x] ~~Settings del negocio~~ ✅ RESUELTA en SyntechPOS@3a8fb67: `GET /sync/bootstrap` ahora trae `settings` con claves CURADAS: `max_discount_percent` (default 10) y `allow_department_sale` (default true) — editables en el panel; la caja los aplica offline y los refresca al re-bootstrapear
 
