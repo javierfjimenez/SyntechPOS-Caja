@@ -5,28 +5,34 @@
 ## 📍 AHORA
 
 - **Fase actual**: FASE 4 — POS de caja
-- **Tarea actual**: 4.2 COMPLETA — e2e en verde contra server.test con el código de producción. Falta solo la verificación visual en la app (vincular con `123456` → descarga → login María `1234`)
-- **Siguiente tarea**: 4.3 Pantalla de venta (input siempre-enfocado, parser de balanza contra `scale-barcodes.json`, multiplicador `n*`)
+- **Tarea actual**: 4.3 construida — pendiente la prueba manual de Javier (guía en la bitácora; código de balanza de prueba: `2020012003453` = Pollo 0.345)
+- **Siguiente tarea**: 4.4 COBRO (efectivo con cambio gigante, EXACTO preseleccionado, mixto, crédito con límite, gaveta)
 - **Bloqueos**: ninguno
   - [ ] Pendiente menor: `nvm alias default 22`
   - [ ] Deuda de CA 4.2: medir 10k SKUs < 30 seg exige sembrar un catálogo grande (el demo tiene 20)
+  - [ ] Deuda de CA 4.3: cronometrar venta de 20 items < 60 seg con cajera real (fase 9)
 
 ## Checklist Fase 4
 
 (ver CLAUDE.md — se marca aquí el avance)
 
-- [x] 4.1 · [x] 4.2 · [ ] 4.3 · [ ] 4.4 · [ ] 4.5 · [ ] 4.6 · [ ] 4.7 · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
+- [x] 4.1 · [x] 4.2 · [~] 4.3 · [ ] 4.4 · [ ] 4.5 · [ ] 4.6 · [ ] 4.7 · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
 
 ## Decisiones locales de implementación (no de contrato)
 
 - **D-caja-1**: credenciales del terminal (`api_token`, `hmac_secret`) viven en `catalog_meta` (SQLite). Cifrado en disco se evalúa en 4.10 (hardening)
 - **D-caja-2**: verificación de PIN con bcryptjs en TS (no Rust): testeable en Vitest desde el día 1. Compatibilidad con hashes `$2y$` de Laravel cubierta por test con hash real de PHP
 - **D-caja-3**: el anti fuerza bruta local del PIN es POR TERMINAL (5 fallos → 1 min), no por usuario — sin identificar al usuario antes de acertar el PIN, el bloqueo atribuible solo puede hacerlo el servidor
+- **D-caja-4**: TODO descuento de línea exige PIN de supervisor (umbral local = 0) hasta que los settings del negocio se repliquen a la caja; el evento registra `supervisor_user_id`
+- **D-caja-5**: balanza con precio embebido → línea `1.000 × total de la etiqueta` (la etiqueta es el hecho; el peso no viaja en el código y los montos cuadran al centavo). Peso embebido → `peso × precio del catálogo`
+- **D-caja-6**: multiplicador `n*` es de UN solo uso (se consume con el próximo escaneo) y no aplica a pesables
 
 ## Preguntas abiertas (para aterrizar en SyntechPOS si aplica)
 
 - [ ] **Seeder demo no estampa `row_version`**: usa `WithoutModelEvents`, que silencia el trait `SyncsCatalogVersion` → todo queda en `row_version=0`, INVISIBLE para el delta (`> since`). Remediado a mano con `touch()` por fila (eventos activos); el fix real es que el seeder estampe versiones (quitar el trait o estampar explícito)
 - [ ] **Flujo "Terminal desvinculada" sin construir en la caja**: si el servidor revoca el token (401/403), hoy la app queda atrapada con credenciales muertas. Falta la pantalla/flujo de re-vinculación (endpoints.md, códigos transversales) — agendar en 4.x
+- [ ] **¿Qué tasa lleva la venta por departamento?** El departamento no define `tax_category`; v1 usa ITBIS18 por defecto (lo más conservador recauda de más en ITBIS0/EXENTO). Opciones: columna `tax_category` en departments (spec + servidor) o selector en el modal
+- [ ] **¿Los settings del negocio bajan a la caja?** (umbral de descuento, permiso de venta por departamento, etc.) Hoy no viajan ni en bootstrap ni en delta — definir en SyntechPOS
 
 - [x] ~~426/X-Client-Version~~ ✅ RESUELTA en SyntechPOS@d9074fd: middleware `RequireMinimumClientVersion` en la bajada (catalog/ecf-results/bootstrap); `/sync/events` y `/ping` quedan FUERA a propósito (el outbox se drena antes de actualizar; el ping es quien INFORMA el mínimo). 426 trae `min_client_version` + `client_version` en el body
 - [x] ~~barcodes en el spec~~ ✅ RESUELTA en SyntechPOS@d9074fd: ejemplo corregido a objetos `[{ "barcode": "…" }]`
@@ -36,6 +42,18 @@
 ---
 
 ## Bitácora
+
+### 2026-06-07 — 4.3: pantalla de venta completa
+
+- **Aritmética decimal BigInt** (`src/lib/decimal.ts`): centavos/milésimas, half-up como PHP; `itbisBreakdown` reproduce el fixture (150.00 → 127.12 + 22.88) y base+impuesto SIEMPRE suman el total
+- **Parser de balanza TS** (`src/services/scale-barcode.ts`): pasa los 9 casos canónicos de `scale-barcodes.json`
+- **Modelo de venta** (`src/services/sale.ts`): líneas y totals con la MISMA forma del evento sale.completed — al cobrar (4.4) se firman sin transformación. `computeTotals` reproduce exacto el fixture del contrato
+- **Store de venta** (`src/stores/sale.ts`): persistencia tecla a tecla a `current_sale` (test de crash-recovery: store nuevo sobre la misma base recupera la venta intacta), merge de repetidos, pesables siempre línea nueva, `n*` de un solo uso, suspendidas máx 5
+- **InputEscaneo**: dueño del foco (blur sin modal → re-foco <50ms; las teclas imprimibles de cualquier parte caen al input), búsqueda en vivo 2+ letras, clasificador puro testeado
+- **Pantalla VENTA**: layout 60/40, TOTAL 56px, F4 cliente (buscar/crear rápido tipo 31, aviso moroso, crédito disponible), F6 cantidad/descuento (PIN supervisor), F8/F9 suspender/recuperar, F10 menú, F12 cobro (stub 4.4), ESC + Deshacer 5 seg, beep + venta por departamento (`product_id null`)
+- **84 tests** (83 unit + e2e) · migración 0003 (`unknown_codes`)
+- Consultas del lookup verificadas contra la réplica real (PLU `20012` → Pollo fresco; búsqueda "arroz"; cliente RNC con crédito)
+- **Guía de prueba manual**: escanear `7461234567890` (si existe) o teclear `20011` + Enter · `arroz` + Enter · `3*` y luego un código · `2020012003453` (balanza: Pollo 0.345 = 22.43) · código falso `999999` → beep + departamento · F6 con descuento → PIN `9999` · F8/F9 · ESC + Deshacer
 
 ### 2026-06-07 — 4.2 CERRADA: e2e completo en verde contra el servidor real
 
