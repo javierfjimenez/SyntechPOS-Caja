@@ -5,8 +5,8 @@
 ## 📍 AHORA
 
 - **Fase actual**: FASE 4 — POS de caja
-- **Tarea actual**: 4.5 construida en código — **pendiente probar con la impresora física** (2Connect, ESC/POS genérica): conectar por USB → menú F10 → Impresora → "Imprimir prueba". Si el QR nativo no sale, fallback a imagen raster
-- **Siguiente tarea**: 4.7 worker del outbox (el servidor valida nuestra firma con eventos reales) → luego cierre de sesión 4.6
+- **Tarea actual**: 4.7 COMPLETA — el ciclo caja→servidor cerrado y probado e2e. 4.5 sigue pendiente solo del hardware (conectar la 2Connect → F10 → Impresora → prueba)
+- **Siguiente tarea**: 4.6 cierre de sesión (arqueo CIEGO + reporte Z + retiros) — con el worker vivo, cash_session.closed viajará solo
 - **Bloqueos**: ninguno
   - [ ] Pendiente menor: `nvm alias default 22`
   - [ ] Deuda de CA 4.2: correr `php artisan db:seed --class=BulkCatalogSeeder` y medir el pull de 10k
@@ -16,7 +16,7 @@
 
 (ver CLAUDE.md — se marca aquí el avance)
 
-- [x] 4.1 · [x] 4.2 · [x] 4.3 · [x] 4.4 · [~] 4.5 (falta validar con hardware) · [~] 4.6 (apertura adelantada) · [~] 4.7 (eventos al outbox; falta worker) · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
+- [x] 4.1 · [x] 4.2 · [x] 4.3 · [x] 4.4 · [~] 4.5 (falta validar con hardware) · [~] 4.6 (apertura adelantada) · [x] 4.7 · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
 
 ## Decisiones locales de implementación (no de contrato)
 
@@ -45,6 +45,15 @@
 ---
 
 ## Bitácora
+
+### 2026-06-07 — 4.7 CERRADA: el worker del outbox y el ciclo completo probado e2e
+
+- **`drainOutbox`** (deps inyectadas, 9 tests): lotes de máx. 50 en orden ULID hasta vaciar; TODOS los status confirman localmente (`quarantined` se reporta — el forense vive en el servidor); fallo de red → backoff exponencial 1s→2s→4s…máx 5 min con jitter ±20% (`lib/backoff.ts` puro); 401/403 → `terminal.markRevoked()` (barra ROJA "Atención requerida", sin martillar el servidor)
+- **Disparadores**: tras cada venta y cada apertura (`drainNow`) + cada 15 seg; `min_client_version` de cada respuesta se guarda (semilla de 4.12)
+- **E2E contra el servidor real con terminal DEDICADO** ("Caja 2 (e2e)", código `654321` — no toca la caja vinculada de Javier): vinculación → catálogo → **`cash_session.opened` + `sale.completed` FIRMADOS por nosotros → `processed`/`processed`** → reenvío del mismo lote → **`duplicate`/`duplicate`** ✓ — el CA "reenviar no duplica" probado contra el servidor de verdad
+- El e2e consume el código de Caja 2: restaurarlo con tinker (`status unlinked + link_code 654321`) — **sugerencia para SyntechPOS**: que el seeder demo cree también "Caja 2 (e2e)"
+- La réplica del e2e ahora carga TODAS las migraciones dinámicamente (se desfasó con la 0004 — corregido)
+- **138 tests**
 
 ### 2026-06-07 — 4.5: impresión ESC/POS (código completo; falta el hardware)
 
