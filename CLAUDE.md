@@ -14,7 +14,8 @@ Cliente de caja del POS SaaS SyntechPOS: app de escritorio **Tauri 2 + Vue 3 + T
    - Implementado contra el commit `8f71b2a` de SyntechPOS — si los specs cambian, actualizar esta referencia
 3. **Cambios de contrato**: aterrizan PRIMERO en SyntechPOS (spec + servidor); este repo los implementa después referenciando el hash nuevo. El `schema_version` del envelope es el seguro de compatibilidad
 4. **Fixtures compartidos**: `docs/fixtures/` son COPIAS de SyntechPOS (ver `PROCEDENCIA.md`); los tests TS DEBEN pasar los mismos casos que pasa el servidor en PHP
-5. **Al cerrar trabajo significativo**: actualiza `docs/ESTADO.md` (bitácora con fecha + checkboxes)
+5. **Referencia rápida de la API**: `docs/endpoints.md` — requests/responses reales de los 6 endpoints (derivada del contrato; si difiere, manda el spec)
+6. **Al cerrar trabajo significativo**: actualiza `docs/ESTADO.md` (bitácora con fecha + checkboxes)
 
 ## Reglas del proyecto (heredadas de SyntechPOS)
 
