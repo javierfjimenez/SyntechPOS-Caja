@@ -1,7 +1,9 @@
+import { fromCents, toCents } from "@/lib/decimal";
 import { formatMoney, formatTime } from "@/lib/format";
 import { COLS, EscPosBuilder } from "@/services/escpos";
 import { METHOD_LABELS, type PaymentDraft } from "@/services/payment";
 import { lineTotal, subtotal, type SaleLine, type SaleTotals } from "@/services/sale";
+import type { CountMethod, SessionActivity } from "@/services/session-report";
 
 /**
  * El ticket 80mm (tarea 4.5): desglose ITBIS por tasa, datos del negocio,
@@ -120,6 +122,86 @@ export function renderTicket(data: TicketData): Uint8Array {
 
   t.feed(3).cut();
   return t.build();
+}
+
+// ── Reportes de sesión (4.6): Z al cerrar, X parcial sin cerrar ───────────────
+
+export interface SessionReportData {
+  kind: "Z" | "X";
+  z_number: number | null; // solo Z
+  business_name: string;
+  terminal_name: string;
+  cashier_name: string;
+  opened_at: Date;
+  printed_at: Date;
+  opening_amount: string;
+  activity: SessionActivity;
+  expected: Record<CountMethod, string>;
+  /** solo Z: lo declarado en el arqueo ciego y su diferencia */
+  counted: Record<CountMethod, string> | null;
+  note: string | null;
+}
+
+const METHOD_NAMES: Record<CountMethod, string> = {
+  cash: "Efectivo",
+  card: "Tarjeta",
+  transfer: "Transferencia",
+};
+
+export function renderSessionReport(data: SessionReportData): Uint8Array {
+  const t = new EscPosBuilder().init();
+
+  t.align(1).bold(true).size(2, 2);
+  t.line(data.kind === "Z" ? `REPORTE Z #${data.z_number}` : "REPORTE X (parcial)");
+  t.size(1, 1).bold(false);
+  t.line(data.business_name);
+  t.line(`${data.terminal_name} · ${data.cashier_name}`);
+  t.feed(1);
+
+  t.align(0);
+  t.row("Apertura", fecha(data.opened_at));
+  t.row(data.kind === "Z" ? "Cierre" : "Impreso", fecha(data.printed_at));
+  t.separator();
+
+  t.bold(true).line("VENTAS").bold(false);
+  t.row(`${data.activity.salesCount} ventas`, money(data.activity.salesTotal));
+  for (const m of ["cash", "card", "transfer"] as const) {
+    if (data.activity.sales[m] !== "0.00") t.row(`  ${METHOD_NAMES[m]}`, money(data.activity.sales[m]));
+  }
+  if (data.activity.creditSales !== "0.00") t.row("  Crédito (no gaveta)", money(data.activity.creditSales));
+  t.separator();
+
+  t.bold(true).line("EFECTIVO").bold(false);
+  t.row("Fondo de caja", money(data.opening_amount));
+  if (data.activity.withdrawals !== "0.00") t.row("Retiros", `-${money(data.activity.withdrawals)}`);
+  if (data.activity.expenses !== "0.00") t.row("Gastos", `-${money(data.activity.expenses)}`);
+  if (data.activity.deposits !== "0.00") t.row("Depósitos", money(data.activity.deposits));
+  t.separator();
+
+  t.bold(true).line(data.kind === "Z" ? "ARQUEO" : "ESPERADO").bold(false);
+  for (const m of ["cash", "card", "transfer"] as const) {
+    if (data.counted !== null) {
+      // Z: esperado vs declarado (el ciego ya pasó)
+      t.row(`${METHOD_NAMES[m]} esperado`, money(data.expected[m]));
+      t.row(`${METHOD_NAMES[m]} declarado`, money(data.counted[m]));
+    } else {
+      t.row(METHOD_NAMES[m], money(data.expected[m]));
+    }
+  }
+  if (data.counted !== null) {
+    const diffCents = sumMethods(data.counted) - sumMethods(data.expected);
+    t.bold(true).row("DIFERENCIA", money(fromCents(diffCents))).bold(false);
+  }
+  if (data.note !== null && data.note !== "") {
+    t.line(`Nota: ${data.note}`);
+  }
+
+  t.feed(3).cut();
+  return t.build();
+}
+
+function sumMethods(amounts: Record<CountMethod, string>): bigint {
+  return toCents(amounts.cash) + toCents(amounts.card) + toCents(amounts.transfer);
 }
 
 /** Página de prueba (vinculación §2 y configuración de impresora) */

@@ -46,6 +46,12 @@ pub fn run() {
             sql: include_str!("../migrations/0004_tasa_departamento.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 5,
+            description: "cierre de sesión: closed_by, diferencia y detalle del arqueo",
+            sql: include_str!("../migrations/0005_cierre_de_sesion.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let app = tauri::Builder::default()
