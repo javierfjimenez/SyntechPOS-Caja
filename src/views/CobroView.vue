@@ -36,6 +36,7 @@ import { useCashierStore } from "@/stores/cashier";
 import { useOutboxStore } from "@/stores/outbox";
 import { useSaleStore } from "@/stores/sale";
 import { useSessionStore } from "@/stores/session";
+import { useTerminalStore } from "@/stores/terminal";
 import { useUiStore } from "@/stores/ui";
 
 /**
@@ -49,6 +50,7 @@ const sale = useSaleStore();
 const cashier = useCashierStore();
 const session = useSessionStore();
 const outbox = useOutboxStore();
+const terminal = useTerminalStore();
 const ui = useUiStore();
 
 const payments = ref<PaymentDraft[]>([]);
@@ -243,6 +245,7 @@ async function confirmar() {
       totals: sale.totals,
       payments: [...payments.value],
       change: cambio.value,
+      ecf_enabled: terminal.ecfEnabled, // D21: sin e-CF no hay QR ni contingencia
       ecf: null, // emisión e-CF: el QR llega con 4.7/4.9 (reimpresión timbrada)
     };
 

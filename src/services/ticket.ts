@@ -29,7 +29,9 @@ export interface TicketData {
   totals: SaleTotals;
   payments: PaymentDraft[];
   change: string;
-  /** null = contingencia (sin comprobante aún) */
+  /** D21: negocio sin e-CF → el ticket no lleva QR NI leyenda de contingencia */
+  ecf_enabled: boolean;
+  /** null = contingencia (sin comprobante aún); solo aplica con ecf_enabled */
   ecf: { encf: string; security_code: string; dgii_url: string } | null;
 }
 
@@ -94,18 +96,21 @@ export function renderTicket(data: TicketData): Uint8Array {
   }
   t.separator();
 
-  // ── e-CF: QR timbrado o leyenda de contingencia ─────────────────────────────
+  // ── e-CF (solo negocios con facturación electrónica, D21):
+  //    QR timbrado o leyenda de contingencia ─────────────────────────────────
   t.align(1);
-  if (data.ecf !== null) {
-    t.line(`e-NCF: ${data.ecf.encf}`);
-    t.line(`Código de seguridad: ${data.ecf.security_code}`);
-    t.qr(data.ecf.dgii_url);
-    t.line("Comprobante Fiscal Electrónico");
-  } else {
-    t.bold(true).line("COMPROBANTE EN CONTINGENCIA").bold(false);
-    t.line("El e-CF se emitirá al restablecerse");
-    t.line("la conexión. Conserve este ticket;");
-    t.line("puede reimprimirlo timbrado en caja.");
+  if (data.ecf_enabled) {
+    if (data.ecf !== null) {
+      t.line(`e-NCF: ${data.ecf.encf}`);
+      t.line(`Código de seguridad: ${data.ecf.security_code}`);
+      t.qr(data.ecf.dgii_url);
+      t.line("Comprobante Fiscal Electrónico");
+    } else {
+      t.bold(true).line("COMPROBANTE EN CONTINGENCIA").bold(false);
+      t.line("El e-CF se emitirá al restablecerse");
+      t.line("la conexión. Conserve este ticket;");
+      t.line("puede reimprimirlo timbrado en caja.");
+    }
   }
 
   if (data.business.receipt_footer) {

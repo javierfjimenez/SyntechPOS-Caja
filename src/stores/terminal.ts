@@ -23,6 +23,7 @@ interface TerminalState {
   /** Settings curados del negocio (bootstrap @3a8fb67) — aplican offline */
   maxDiscountPercent: number;
   allowDepartmentSale: boolean;
+  ecfEnabled: boolean; // D21: facturación electrónica opcional por negocio
   online: boolean;
   appVersion: string;
   apiUrl: string;
@@ -38,6 +39,7 @@ const META_KEYS = [
   "scale_format",
   "setting_max_discount_percent",
   "setting_allow_department_sale",
+  "setting_ecf_enabled",
 ];
 
 export const useTerminalStore = defineStore("terminal", {
@@ -51,6 +53,7 @@ export const useTerminalStore = defineStore("terminal", {
     scaleFormat: "weight",
     maxDiscountPercent: 10,
     allowDepartmentSale: true,
+    ecfEnabled: false, // conservador: sin QR hasta que el bootstrap diga lo contrario
     online: false,
     appVersion: "0.0.0",
     apiUrl: DEFAULT_API_URL,
@@ -69,6 +72,7 @@ export const useTerminalStore = defineStore("terminal", {
       this.scaleFormat = meta.scale_format === "price" ? "price" : "weight";
       this.maxDiscountPercent = Number(meta.setting_max_discount_percent ?? "10");
       this.allowDepartmentSale = meta.setting_allow_department_sale !== "0";
+      this.ecfEnabled = meta.setting_ecf_enabled === "1";
       this.linked = this.token !== null;
       this.loaded = true;
     },
@@ -113,9 +117,11 @@ export const useTerminalStore = defineStore("terminal", {
       await setMeta("branch_address", data.branch.address ?? "");
       await setMeta("setting_max_discount_percent", String(data.settings.max_discount_percent));
       await setMeta("setting_allow_department_sale", data.settings.allow_department_sale ? "1" : "0");
+      await setMeta("setting_ecf_enabled", data.settings.ecf_enabled ? "1" : "0");
       this.scaleFormat = data.business.scale_format;
       this.maxDiscountPercent = data.settings.max_discount_percent;
       this.allowDepartmentSale = data.settings.allow_department_sale;
+      this.ecfEnabled = data.settings.ecf_enabled;
     },
 
     /** Heartbeat: marca online/offline sin bloquear jamás la operación */

@@ -93,6 +93,7 @@ const DATA: TicketData = {
   },
   payments: [{ method_code: "cash", amount: "150.00", amount_tendered: "200.00", reference: null }],
   change: "50.00",
+  ecf_enabled: true,
   ecf: null,
 };
 
@@ -113,10 +114,17 @@ describe("renderTicket (el hecho legal impreso)", () => {
     expect(out).toContain("CAMBIO");
   });
 
-  it("sin e-CF imprime la LEYENDA DE CONTINGENCIA (D9)", () => {
+  it("sin e-CF resuelto imprime la LEYENDA DE CONTINGENCIA (D9)", () => {
     const out = texto(renderTicket(DATA));
     expect(out).toContain("COMPROBANTE EN CONTINGENCIA");
     expect(out).not.toContain("e-NCF:");
+  });
+
+  it("D21: negocio SIN facturación electrónica → ni QR ni leyenda", () => {
+    const out = texto(renderTicket({ ...DATA, ecf_enabled: false }));
+    expect(out).not.toContain("CONTINGENCIA");
+    expect(out).not.toContain("e-NCF:");
+    expect(out).toContain("RD$ 150.00"); // el ticket comercial sale igual
   });
 
   it("con e-CF imprime e-NCF + código de seguridad + QR (sin leyenda)", () => {

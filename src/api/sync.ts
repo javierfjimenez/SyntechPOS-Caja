@@ -90,6 +90,8 @@ export interface BootstrapResult {
   settings: {
     max_discount_percent: number;
     allow_department_sale: boolean;
+    /** D21: sin e-CF el ticket va sin QR ni leyenda de contingencia */
+    ecf_enabled: boolean;
   };
   branch: { id: number; name: string | null; address: string | null };
   terminal: { id: number; name: string };
