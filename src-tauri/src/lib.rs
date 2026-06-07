@@ -19,12 +19,20 @@ fn authorize_exit(app: tauri::AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let migrations = vec![Migration {
-        version: 1,
-        description: "esquema inicial (esquema.md §11)",
-        sql: include_str!("../migrations/0001_esquema_inicial.sql"),
-        kind: MigrationKind::Up,
-    }];
+    let migrations = vec![
+        Migration {
+            version: 1,
+            description: "esquema inicial (esquema.md §11)",
+            sql: include_str!("../migrations/0001_esquema_inicial.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "réplica completa: cost/sku en products, phone en customers",
+            sql: include_str!("../migrations/0002_replica_completa.sql"),
+            kind: MigrationKind::Up,
+        },
+    ];
 
     let app = tauri::Builder::default()
         .manage(KioskState {
