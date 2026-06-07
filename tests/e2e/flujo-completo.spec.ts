@@ -99,6 +99,8 @@ describe.runIf(RUN)("flujo completo contra el servidor real", () => {
     // 6. EVENTOS REALES (4.7): el servidor verifica NUESTRA firma HMAC
     const cashier = (await findUserByPin("1234", users))!;
     const sessionUlid = ulid();
+    // ticket único por corrida: uq (terminal, ticket_number) server-side
+    const baseTicket = Math.floor(Date.now() / 1000) % 100_000_000;
     const sessionEnvelope = await buildEnvelope(link.hmac_secret, {
       ulid: ulid(),
       type: "cash_session.opened",
@@ -132,7 +134,7 @@ describe.runIf(RUN)("flujo completo contra el servidor real", () => {
       },
       payments: [cashPayment("150.00", "200.00")],
       saleUlid: ulid(),
-      ticketNumber: 1,
+      ticketNumber: baseTicket,
       cashSessionUlid: sessionUlid,
       cashierUserId: cashier.id,
     });
@@ -150,6 +152,29 @@ describe.runIf(RUN)("flujo completo contra el servidor real", () => {
     // 7. CA de 4.7: REENVIAR NO DUPLICA (idempotencia server-side por ULID)
     const resent = await postEvents([sessionEnvelope, saleEnvelope], opts);
     expect(resent.results.map((r) => r.status)).toEqual(["duplicate", "duplicate"]);
+
+    // 8. Devolución (4.8): NC tipo 34 contra la venta recién procesada
+    const { findSaleByTicket, returnableQuantities, buildCreditNotePayload } = await import("@/services/refund");
+    const original = findSaleByTicket([saleEnvelope], baseTicket)!;
+    const supervisor = (await findSupervisorByPin("9999", users))!;
+    const ncPayload = buildCreditNotePayload({
+      original,
+      selections: [{ lineIndex: 0, quantity: "1.000" }],
+      returnable: returnableQuantities([saleEnvelope], original),
+      saleUlid: ulid(),
+      ticketNumber: baseTicket + 1,
+      cashSessionUlid: sessionUlid,
+      cashierUserId: cashier.id,
+      supervisorUserId: supervisor.id,
+    });
+    const ncEnvelope = await buildEnvelope(link.hmac_secret, {
+      ulid: ulid(),
+      type: "sale.completed",
+      occurred_at: toIsoWithOffset(new Date()),
+      payload: ncPayload,
+    });
+    const ncResult = await postEvents([ncEnvelope], opts);
+    expect(ncResult.results[0]!.status).toBe("processed");
 
     // Para re-vincular la app de escritorio sin repetir el seeder:
     console.log(`E2E_TOKEN=${link.token}`);
