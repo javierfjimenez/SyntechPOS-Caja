@@ -3,8 +3,7 @@
  * Header X-Client-Version obligatorio en toda llamada (D14).
  */
 
-export const DEFAULT_API_URL =
-  (import.meta.env?.VITE_API_URL as string | undefined) ?? "http://localhost:8000/api/v1";
+export const DEFAULT_API_URL = import.meta.env?.VITE_API_URL ?? "http://localhost:8000/api/v1";
 
 export class ApiError extends Error {
   constructor(
