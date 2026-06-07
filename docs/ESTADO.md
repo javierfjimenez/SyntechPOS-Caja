@@ -5,8 +5,8 @@
 ## 📍 AHORA
 
 - **Fase actual**: FASE 4 — POS de caja
-- **Tarea actual**: 4.4 construida — pendiente prueba manual del flujo completo (apertura → venta → cobro → "Venta #1") y medir el CA 4.2 con `BulkCatalogSeeder` (10k)
-- **Siguiente tarea**: 4.5 Impresión ESC/POS (ticket con desglose ITBIS, QR e-CF, datos del negocio) o 4.7 worker del outbox — el outbox ya acumula eventos firmados listos para enviar
+- **Tarea actual**: 4.5 construida en código — **pendiente probar con la impresora física** (2Connect, ESC/POS genérica): conectar por USB → menú F10 → Impresora → "Imprimir prueba". Si el QR nativo no sale, fallback a imagen raster
+- **Siguiente tarea**: 4.7 worker del outbox (el servidor valida nuestra firma con eventos reales) → luego cierre de sesión 4.6
 - **Bloqueos**: ninguno
   - [ ] Pendiente menor: `nvm alias default 22`
   - [ ] Deuda de CA 4.2: correr `php artisan db:seed --class=BulkCatalogSeeder` y medir el pull de 10k
@@ -16,7 +16,7 @@
 
 (ver CLAUDE.md — se marca aquí el avance)
 
-- [x] 4.1 · [x] 4.2 · [x] 4.3 · [x] 4.4 · [ ] 4.5 · [~] 4.6 (apertura adelantada) · [~] 4.7 (eventos al outbox; falta worker) · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
+- [x] 4.1 · [x] 4.2 · [x] 4.3 · [x] 4.4 · [~] 4.5 (falta validar con hardware) · [~] 4.6 (apertura adelantada) · [~] 4.7 (eventos al outbox; falta worker) · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
 
 ## Decisiones locales de implementación (no de contrato)
 
@@ -33,6 +33,7 @@
 
 - [x] ~~Seeder sin row_version~~ ✅ RESUELTA en SyntechPOS@3a8fb67: WithoutModelEvents eliminado + test de regresión; además `BulkCatalogSeeder` (10k SKUs con barcode) para medir el CA 4.2: `php artisan db:seed --class=BulkCatalogSeeder`
 - [ ] **Flujo "Terminal desvinculada" sin construir en la caja**: si el servidor revoca el token (401/403), hoy la app queda atrapada con credenciales muertas. Falta la pantalla/flujo de re-vinculación (endpoints.md, códigos transversales) — agendar en 4.x
+- [ ] **D21 (nuevo contrato, SyntechPOS@19d38e9)**: la facturación electrónica es OPCIONAL por negocio — `bootstrap.settings.ecf_enabled`. Cuando es `false`: el ticket va SIN sección de e-NCF/QR ni leyenda de contingencia, la pantalla de Estado no muestra "comprobantes pendientes", y no se espera `/sync/ecf-results`. Aplicar en 4.5 (ticket) y pantalla de Estado
 - [x] ~~Tasa de venta por departamento~~ ✅ RESUELTA en SyntechPOS@3a8fb67: `departments.tax_category` (default ITBIS18; Frutas y Verduras EXENTO en el demo) — ya viaja en el delta; la caja debe usar la tasa del departamento en el modal
 - [x] ~~Settings del negocio~~ ✅ RESUELTA en SyntechPOS@3a8fb67: `GET /sync/bootstrap` ahora trae `settings` con claves CURADAS: `max_discount_percent` (default 10) y `allow_department_sale` (default true) — editables en el panel; la caja los aplica offline y los refresca al re-bootstrapear
 
@@ -44,6 +45,15 @@
 ---
 
 ## Bitácora
+
+### 2026-06-07 — 4.5: impresión ESC/POS (código completo; falta el hardware)
+
+- **Builder ESC/POS puro** (`src/services/escpos.ts`): comandos estándar compatibles con genéricas (2Connect/Xprinter) y Epson — CP850 para ñ/acentos, QR nativo GS(k, corte parcial, pulso de gaveta ESC p 0. Bytes testeados sin impresora (14 tests)
+- **Ticket 80mm** (`src/services/ticket.ts`): encabezado del negocio (bootstrap), líneas con descuentos, **desglose ITBIS por tasa**, pagos/cambio, y QR del e-CF **o leyenda de CONTINGENCIA** (D9) — ambos caminos listos desde ya. Página de prueba con diagnóstico de acentos+QR
+- **Transporte Rust** (`src-tauri/src/printer.rs`): USB = primera interfaz clase 7 con bulk OUT (rusb, libusb empaquetado — sin deps del sistema); red = RAW a :9100 con timeouts. Errores en español de cajera
+- **Config en menú F10**: USB/red + IP + Imprimir prueba (guarda en catalog_meta)
+- **Cobro**: gaveta (solo efectivo) + ticket en un solo viaje, SIN bloquear; si falla → toast rojo persistente "Ticket pendiente de imprimir" + **Reimprimir** (la venta ya está a salvo en el outbox)
+- **128 tests** · La impresora 2Connect de Javier aún no se conecta: al enchufarla → F10 → Impresora → prueba. Posibles ajustes con hardware real: QR nativo vs raster, columnas (48 vs 42), permisos USB de macOS
 
 ### 2026-06-07 — 4.4: COBRO + apertura de sesión + el primer evento firmado
 
