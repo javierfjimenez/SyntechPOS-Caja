@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -29,8 +30,9 @@ const LINK_CODE = process.env.E2E_LINK_CODE ?? "123456";
 async function makeDb(): Promise<DbExecutor & { all: (sql: string) => unknown[] }> {
   const { DatabaseSync } = await import("node:sqlite");
   const db = new DatabaseSync(":memory:");
-  for (const file of ["0001_esquema_inicial.sql", "0002_replica_completa.sql"]) {
-    db.exec(readFileSync(join(__dirname, "../../src-tauri/migrations", file), "utf8"));
+  const here = dirname(fileURLToPath(import.meta.url));
+  for (const file of ["0001_esquema_inicial.sql", "0002_replica_completa.sql", "0003_codigos_desconocidos.sql"]) {
+    db.exec(readFileSync(join(here, "../../src-tauri/migrations", file), "utf8"));
   }
   return {
     async execute(sql: string, params: unknown[] = []) {
