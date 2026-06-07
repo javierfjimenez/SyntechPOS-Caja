@@ -4,25 +4,45 @@
 
 ## 📍 AHORA
 
-- **Fase actual**: FASE 4 — POS de caja (arranque)
-- **Siguiente tarea**: 4.1 Esqueleto Tauri 2 + Vue 3 + SQLite + kiosk + vinculación/login
-- **Bloqueos**: toolchain de Javier incompleto —
-  - [ ] `nvm alias default 22` (Node 22 ya instalado, falta hacerlo default)
-  - [ ] Instalar Rust: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-  - [ ] Verificar Xcode CLT: `xcode-select -p`
-  - [ ] Crear repo privado `SyntechPOS-caja` en GitHub y conectar este folder (`git remote add origin …` + push)
+- **Fase actual**: FASE 4 — POS de caja
+- **Tarea actual**: 4.1 casi completa — falta probar la vinculación end-to-end contra el servidor local (`composer dev` + código `123456`)
+- **Siguiente tarea**: 4.2 Delta-sync de catálogo — **TODOS los endpoints ya existen en el servidor** (SyntechPOS@8f71b2a): catalog/bootstrap/events/ecf-results + usuarios en el delta. Primer paso: réplica TS del HMAC validada contra `docs/fixtures/firma-hmac.json`
+- **Bloqueos**: ninguno (Rust 1.96 instalado ✓, Xcode CLT ✓, repo en GitHub ✓)
+  - [ ] Pendiente menor: `nvm alias default 22`
 
 ## Checklist Fase 4
 
 (ver CLAUDE.md — se marca aquí el avance)
 
-- [ ] 4.1 · [ ] 4.2 · [ ] 4.3 · [ ] 4.4 · [ ] 4.5 · [ ] 4.6 · [ ] 4.7 · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
+- [~] 4.1 · [ ] 4.2 · [ ] 4.3 · [ ] 4.4 · [ ] 4.5 · [ ] 4.6 · [ ] 4.7 · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
+
+## Decisiones locales de implementación (no de contrato)
+
+- **D-caja-1**: credenciales del terminal (`api_token`, `hmac_secret`) viven en `catalog_meta` (SQLite). Cifrado en disco se evalúa en 4.10 (hardening)
+- **D-caja-2**: verificación de PIN con bcryptjs en TS (no Rust): testeable en Vitest desde el día 1. Compatibilidad con hashes `$2y$` de Laravel cubierta por test con hash real de PHP
+- **D-caja-3**: el anti fuerza bruta local del PIN es POR TERMINAL (5 fallos → 1 min), no por usuario — sin identificar al usuario antes de acertar el PIN, el bloqueo atribuible solo puede hacerlo el servidor
+
+## Preguntas abiertas (para aterrizar en SyntechPOS si aplica)
+
+- [x] ~~Lockout de PIN~~ ✅ RESPONDIDA en SyntechPOS@8f71b2a: ui-caja §3 reformulado a espera POR TERMINAL (lo implementado es lo correcto); el bloqueo atribuible lo hará el servidor al reconciliar
+- [x] ~~Réplica de usuarios~~ ✅ RESPONDIDA en SyntechPOS@8f71b2a: los usuarios bajan en `GET /sync/catalog` (no en bootstrap) con `id, name, role, pin_hash, is_active, row_version` — el seed dev de 4.1 se reemplaza por el delta real en 4.2
 
 ---
 
 ## Bitácora
 
-### 2026-06-07 — Repo creado (decisión D20 de SyntechPOS)
+### 2026-06-06 — 4.1: esqueleto, vinculación, login PIN y kiosk
+
+- **Esqueleto**: Tauri 2 + Vue 3 + TS + Pinia + vue-router + tauri-plugin-sql (SQLite) + Tailwind 4 con los tokens de DISENO.md (`src/assets/main.css` `@theme`) + Inter/JetBrains Mono empaquetadas offline (fontsource) + Vitest
+- **SQLite local** (esquema.md §11): migración `0001_esquema_inicial.sql` — `catalog_meta` (KV), réplicas (`products`, `barcodes`, `departments`, `customers`, `payment_methods`, `users`), `outbox`, `current_sale`, `suspended_sales`, `local_sessions`, `ecf_results`
+- **Vinculación** (pantalla 1): código 6 dígitos contra `POST /terminals/link` real; persiste token + `hmac_secret` + datos del ticket; 5 códigos errados → espera 1 min; sin red → mensaje claro
+- **Login PIN** (pantalla 2): offline, bcrypt contra réplica local, teclado físico + touch; espera anti fuerza bruta persiste reinicios. SEED DEV temporal (`src/db/seed-dev.ts`): María 1234 (cajera), Ana 9999 (supervisora) — se elimina al cablear bootstrap en 4.2
+- **Kiosk**: release = fullscreen sin chrome; cerrar/Cmd+Q interceptado en Rust → modal `PinAutorizacion` (supervisor) → `authorize_exit`. En dev la ventana es normal
+- **Componentes ui** (inventario ui-caja.md §11): `BarraEstado` (con heartbeat `/ping` cada 30 s), `BotonAccion`, `TecladoNumerico`, `ModalBase` (focus-trap + devolución de foco), `PinAutorizacion`, `PieAtajos`
+- **Tests**: 23 en verde (formato RD$ y hora 12h, lockout, login PIN con hash `$2y$` real de PHP, cliente de vinculación con respuesta exacta del servidor)
+- Pendiente de 4.1: prueba end-to-end de vinculación contra el servidor local y validar kiosk en build release
+
+### 2026-06-06 — Repo creado (decisión D20 de SyntechPOS)
 - Javier decidió desarrollar la caja en repo separado del servidor
 - Creado con: CLAUDE.md (reglas + plan Fase 4 + referencias al contrato en `SyntechPOS@d555795`), fixtures copiados con procedencia (`docs/fixtures/`), `.nvmrc` (22)
 - El servidor ya expone vinculación (`/terminals/link`, código demo `123456`) y heartbeat (`/ping`) — la 4.1 tiene contra qué probar desde el día 1

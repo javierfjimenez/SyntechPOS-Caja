@@ -11,7 +11,7 @@ Cliente de caja del POS SaaS SyntechPOS: app de escritorio **Tauri 2 + Vue 3 + T
    - `docs/specs/topologia-tienda.md` — cómo se montan N cajas
    - `docs/DISENO.md` — tokens, componentes, glosario en español. ES LEY para toda pantalla
    - `docs/specs/esquema.md` §11 — el contrato del SQLite local
-   - Implementado contra el commit `d555795` de SyntechPOS — si los specs cambian, actualizar esta referencia
+   - Implementado contra el commit `8f71b2a` de SyntechPOS — si los specs cambian, actualizar esta referencia
 3. **Cambios de contrato**: aterrizan PRIMERO en SyntechPOS (spec + servidor); este repo los implementa después referenciando el hash nuevo. El `schema_version` del envelope es el seguro de compatibilidad
 4. **Fixtures compartidos**: `docs/fixtures/` son COPIAS de SyntechPOS (ver `PROCEDENCIA.md`); los tests TS DEBEN pasar los mismos casos que pasa el servidor en PHP
 5. **Al cerrar trabajo significativo**: actualiza `docs/ESTADO.md` (bitácora con fecha + checkboxes)
@@ -57,9 +57,14 @@ Ejemplos: `feat(venta): input de escaneo con multiplicador 3*` · `fix(sync): el
 
 ## Lo que el servidor YA tiene esperando (no construir a ciegas: probar contra él)
 
-- `POST /api/v1/terminals/link` — vinculación con código de 6 dígitos → token + hmac_secret
+**TODO el protocolo de sync está construido y probado server-side** (SyntechPOS@8f71b2a, 195 tests):
+- `POST /api/v1/terminals/link` — vinculación → token + hmac_secret
 - `GET /api/v1/ping` — heartbeat con `min_client_version` y `server_time`
-- Los endpoints de sync (`/sync/events`, `/sync/catalog`, `/sync/ecf-results`) se construyen en el servidor DURANTE esta fase, contrato ya cerrado en eventos-sync.md
+- `POST /api/v1/sync/events` — sube el outbox (firma HMAC, idempotencia, respuesta por evento)
+- `GET /api/v1/sync/catalog?since&cursor` — delta: products(+barcodes), departments, customers, payment_methods y **users** (con `role` y `pin_hash` para el login offline)
+- `GET /api/v1/sync/ecf-results?since` — QR de e-CF por terminal (reimpresión)
+- `GET /api/v1/sync/bootstrap` — datos del ticket + formato de balanza
+- Vector de firma: `docs/fixtures/firma-hmac.json` — la implementación TS del HMAC debe reproducirlo byte a byte ANTES de enviar el primer evento real
 
 ## Entorno local
 
