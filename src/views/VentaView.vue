@@ -9,6 +9,7 @@ import ConfiguracionImpresora from "@/components/ui/ConfiguracionImpresora.vue";
 import EditarLinea from "@/components/ui/EditarLinea.vue";
 import InputEscaneo from "@/components/ui/InputEscaneo.vue";
 import ModalBase from "@/components/ui/ModalBase.vue";
+import MovimientoEfectivo from "@/components/ui/MovimientoEfectivo.vue";
 import PanelTotal from "@/components/ui/PanelTotal.vue";
 import PieAtajos from "@/components/ui/PieAtajos.vue";
 import ProductoDesconocido from "@/components/ui/ProductoDesconocido.vue";
@@ -22,7 +23,9 @@ import { parseScaleBarcode } from "@/services/scale-barcode";
 import type { SaleCustomer, SaleLine } from "@/services/sale";
 import type { UserRow } from "@/services/auth";
 import { useCashierStore } from "@/stores/cashier";
+import { useOutboxStore } from "@/stores/outbox";
 import { useSaleStore } from "@/stores/sale";
+import { useSessionStore } from "@/stores/session";
 import { useTerminalStore } from "@/stores/terminal";
 import { useUiStore } from "@/stores/ui";
 
@@ -33,6 +36,8 @@ import { useUiStore } from "@/stores/ui";
 const router = useRouter();
 const sale = useSaleStore();
 const cashier = useCashierStore();
+const session = useSessionStore();
+const outbox = useOutboxStore();
 const terminal = useTerminalStore();
 const ui = useUiStore();
 
@@ -44,7 +49,8 @@ type Modal =
   | "editar"
   | "menu"
   | "confirmarCancelar"
-  | "impresora";
+  | "impresora"
+  | "movimiento";
 const modal = ref<Modal>(null);
 const unknownCode = ref("");
 
@@ -145,6 +151,56 @@ async function cobrar() {
 }
 
 // ── Menú (F10) ────────────────────────────────────────────────────────────────
+
+async function registrarMovimiento(
+  tipo: "withdrawal" | "deposit" | "expense",
+  amount: string,
+  reason: string,
+) {
+  if (cashier.current === null) return;
+  modal.value = null;
+  try {
+    await session.addMovement(tipo, amount, reason, cashier.current.id);
+    void outbox.drainNow();
+    ui.toast("exito", `Movimiento registrado: ${formatMoney(amount)}.`);
+  } catch (e) {
+    ui.toast("error", e instanceof Error ? e.message : "No se pudo registrar el movimiento.");
+  }
+}
+
+async function imprimirReporteX() {
+  if (cashier.current === null || session.openedAt === null) return;
+  modal.value = null;
+  try {
+    const activity = await session.activity();
+    const { expectedAmounts } = await import("@/services/session-report");
+    const { printSessionReport } = await import("@/services/session-print");
+    await printSessionReport({
+      kind: "X",
+      zNumber: null,
+      cashierName: cashier.current.name,
+      openedAt: new Date(session.openedAt),
+      openingAmount: session.openingAmount ?? "0.00",
+      activity,
+      expected: expectedAmounts(session.openingAmount ?? "0.00", activity),
+      counted: null,
+      note: null,
+    });
+    ui.toast("exito", "Reporte X enviado a la impresora.");
+  } catch (e) {
+    ui.toast("error", `Reporte X pendiente de imprimir: ${e instanceof Error ? e.message : e}`);
+  }
+}
+
+async function irACierre() {
+  if (!sale.isEmpty) {
+    modal.value = null;
+    ui.toast("error", "Termina o suspende la venta en curso antes de cerrar la sesión.");
+    return;
+  }
+  modal.value = null;
+  await router.push({ name: "cierre" });
+}
 
 async function cancelSale() {
   modal.value = null;
@@ -260,18 +316,33 @@ function onFnKeys(e: KeyboardEvent) {
     />
 
     <ModalBase v-if="modal === 'menu'" @cerrar="modal = null">
-      <div class="flex w-72 flex-col gap-2">
+      <div class="flex w-80 flex-col gap-2">
         <h2 class="mb-2 text-lg font-bold text-text">Menú</h2>
-        <BotonAccion variante="peligro" :disabled="sale.isEmpty" @click="modal = 'confirmarCancelar'">
-          Cancelar venta
+        <BotonAccion variante="secundario" @click="modal = 'movimiento'">
+          Retiro / gasto de efectivo
         </BotonAccion>
+        <BotonAccion variante="secundario" @click="imprimirReporteX">
+          Imprimir reporte X (parcial)
+        </BotonAccion>
+        <BotonAccion variante="secundario" @click="irACierre">
+          Cierre de sesión (arqueo)
+        </BotonAccion>
+        <BotonAccion variante="secundario" @click="modal = 'impresora'">Impresora</BotonAccion>
         <BotonAccion variante="secundario" @click="changeCashier">
           Bloquear / cambiar cajero
         </BotonAccion>
-        <BotonAccion variante="secundario" @click="modal = 'impresora'">Impresora</BotonAccion>
+        <BotonAccion variante="peligro" :disabled="sale.isEmpty" @click="modal = 'confirmarCancelar'">
+          Cancelar venta
+        </BotonAccion>
         <BotonAccion variante="secundario" @click="modal = null">Seguir vendiendo (ESC)</BotonAccion>
       </div>
     </ModalBase>
+
+    <MovimientoEfectivo
+      v-if="modal === 'movimiento'"
+      @registrar="registrarMovimiento"
+      @cerrar="modal = null"
+    />
 
     <ConfiguracionImpresora v-if="modal === 'impresora'" @cerrar="modal = null" />
 

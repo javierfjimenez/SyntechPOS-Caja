@@ -2,6 +2,9 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
+import { formatTime } from "@/lib/format";
+import type { LastClosedInfo } from "@/stores/session";
+
 import BarraEstado from "@/components/ui/BarraEstado.vue";
 import BotonAccion from "@/components/ui/BotonAccion.vue";
 import TecladoNumerico from "@/components/ui/TecladoNumerico.vue";
@@ -22,6 +25,7 @@ const outbox = useOutboxStore();
 const digits = ref(""); // centavos tecleados: "200000" = RD$ 2,000.00
 const opening = ref(false);
 const error = ref<string | null>(null);
+const ultima = ref<LastClosedInfo | null>(null);
 
 const amount = computed(() => {
   const padded = digits.value.padStart(3, "0");
@@ -64,7 +68,10 @@ function onKeydown(e: KeyboardEvent) {
   e.preventDefault();
 }
 
-onMounted(() => window.addEventListener("keydown", onKeydown));
+onMounted(() => {
+  window.addEventListener("keydown", onKeydown);
+  void session.lastClosed().then((info) => (ultima.value = info));
+});
 onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 </script>
 
@@ -83,6 +90,17 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
       </div>
 
       <TecladoNumerico @digito="digito" @borrar="borrar" @confirmar="abrir" />
+
+      <p v-if="ultima" class="text-center text-sm text-text-dim">
+        Última sesión: cerrada {{ formatTime(new Date(ultima.closed_at)) }}
+        <template v-if="ultima.closed_by_name">por {{ ultima.closed_by_name }}</template>
+        <br />
+        Diferencia del último arqueo:
+        <span class="monto font-semibold" :class="ultima.difference === '0.00' ? 'text-success' : 'text-warning'">
+          {{ formatMoney(ultima.difference ?? "0.00") }}
+          <template v-if="ultima.difference === '0.00'">✓</template>
+        </span>
+      </p>
 
       <p v-if="error" class="font-medium text-danger">{{ error }}</p>
 

@@ -3,8 +3,12 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import BarraEstado from "@/components/ui/BarraEstado.vue";
+import BotonAccion from "@/components/ui/BotonAccion.vue";
+import ModalBase from "@/components/ui/ModalBase.vue";
 import TecladoNumerico from "@/components/ui/TecladoNumerico.vue";
+import { getDb } from "@/db";
 import { useCashierStore } from "@/stores/cashier";
+import { useSessionStore } from "@/stores/session";
 
 /**
  * Pantalla 2 — Login de cajero (ui-caja.md §3). El PIN identifica al cajero
@@ -12,6 +16,7 @@ import { useCashierStore } from "@/stores/cashier";
  */
 const router = useRouter();
 const cashier = useCashierStore();
+const session = useSessionStore();
 
 const MAX_PIN = 6;
 const MIN_PIN = 4;
@@ -19,6 +24,8 @@ const pin = ref("");
 const error = ref<string | null>(null);
 const verificando = ref(false);
 const ahora = ref(Date.now());
+/** ui-caja §3: la sesión la abrió OTRO cajero — avisar antes de entrar */
+const sesionAjena = ref<string | null>(null);
 
 let timer: ReturnType<typeof setInterval> | undefined;
 
@@ -43,11 +50,31 @@ async function confirmar() {
   const ok = await cashier.loginWithPin(pin.value);
   verificando.value = false;
   pin.value = "";
-  if (ok) {
-    await router.replace({ name: "venta" });
-  } else if (espera.value === 0) {
-    error.value = "PIN incorrecto. Inténtalo de nuevo.";
+  if (!ok) {
+    if (espera.value === 0) error.value = "PIN incorrecto. Inténtalo de nuevo.";
+    return;
   }
+
+  // Sesión abierta por OTRO cajero: aviso (las ventas registran al cajero
+  // real; la sesión NO cambia de dueño — ui-caja §3)
+  await session.load();
+  if (session.isOpen && session.openedBy !== cashier.current!.id) {
+    const db = await getDb();
+    const rows = await db.select<{ name: string }[]>("SELECT name FROM users WHERE id = $1", [session.openedBy]);
+    sesionAjena.value = rows[0]?.name ?? "otro cajero";
+    return;
+  }
+  await router.replace({ name: "venta" });
+}
+
+async function continuarEnSesionAjena() {
+  sesionAjena.value = null;
+  await router.replace({ name: "venta" });
+}
+
+function cancelarSesionAjena() {
+  sesionAjena.value = null;
+  cashier.logout();
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -105,5 +132,21 @@ onUnmounted(() => {
         El teclado físico también funciona: dígitos + Enter
       </p>
     </main>
+
+    <ModalBase v-if="sesionAjena !== null" @cerrar="cancelarSesionAjena">
+      <div class="flex w-96 flex-col gap-4">
+        <h2 class="text-lg font-bold text-text">Sesión de otro cajero</h2>
+        <p class="text-text-dim">
+          La sesión de caja la abrió <span class="font-semibold text-text">{{ sesionAjena }}</span
+          >. ¿Continuar como
+          <span class="font-semibold text-text">{{ cashier.current?.name }}</span
+          >? Tus ventas quedarán a tu nombre; la sesión no cambia de dueño.
+        </p>
+        <div class="flex justify-end gap-2">
+          <BotonAccion variante="secundario" @click="cancelarSesionAjena">Volver</BotonAccion>
+          <BotonAccion @click="continuarEnSesionAjena">Continuar</BotonAccion>
+        </div>
+      </div>
+    </ModalBase>
   </div>
 </template>

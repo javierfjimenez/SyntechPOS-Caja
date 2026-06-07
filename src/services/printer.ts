@@ -28,7 +28,7 @@ export async function savePrinterConfig(config: PrinterConfig): Promise<void> {
   await setMeta("printer_host", config.host ?? "");
 }
 
-async function printBytes(bytes: Uint8Array): Promise<void> {
+export async function printBytes(bytes: Uint8Array): Promise<void> {
   const config = await getPrinterConfig();
   await invoke("print_raw", {
     bytes: Array.from(bytes),
