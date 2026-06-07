@@ -5,25 +5,27 @@
 ## 📍 AHORA
 
 - **Fase actual**: FASE 4 — POS de caja
-- **Tarea actual**: 4.3 construida — pendiente la prueba manual de Javier (guía en la bitácora; código de balanza de prueba: `2020012003453` = Pollo 0.345)
-- **Siguiente tarea**: 4.4 COBRO (efectivo con cambio gigante, EXACTO preseleccionado, mixto, crédito con límite, gaveta)
+- **Tarea actual**: 4.4 construida — pendiente prueba manual del flujo completo (apertura → venta → cobro → "Venta #1") y medir el CA 4.2 con `BulkCatalogSeeder` (10k)
+- **Siguiente tarea**: 4.5 Impresión ESC/POS (ticket con desglose ITBIS, QR e-CF, datos del negocio) o 4.7 worker del outbox — el outbox ya acumula eventos firmados listos para enviar
 - **Bloqueos**: ninguno
   - [ ] Pendiente menor: `nvm alias default 22`
-  - [ ] Deuda de CA 4.2: medir 10k SKUs < 30 seg exige sembrar un catálogo grande (el demo tiene 20)
+  - [ ] Deuda de CA 4.2: correr `php artisan db:seed --class=BulkCatalogSeeder` y medir el pull de 10k
   - [ ] Deuda de CA 4.3: cronometrar venta de 20 items < 60 seg con cajera real (fase 9)
 
 ## Checklist Fase 4
 
 (ver CLAUDE.md — se marca aquí el avance)
 
-- [x] 4.1 · [x] 4.2 · [~] 4.3 · [ ] 4.4 · [ ] 4.5 · [ ] 4.6 · [ ] 4.7 · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
+- [x] 4.1 · [x] 4.2 · [x] 4.3 · [x] 4.4 · [ ] 4.5 · [~] 4.6 (apertura adelantada) · [~] 4.7 (eventos al outbox; falta worker) · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
 
 ## Decisiones locales de implementación (no de contrato)
 
 - **D-caja-1**: credenciales del terminal (`api_token`, `hmac_secret`) viven en `catalog_meta` (SQLite). Cifrado en disco se evalúa en 4.10 (hardening)
 - **D-caja-2**: verificación de PIN con bcryptjs en TS (no Rust): testeable en Vitest desde el día 1. Compatibilidad con hashes `$2y$` de Laravel cubierta por test con hash real de PHP
 - **D-caja-3**: el anti fuerza bruta local del PIN es POR TERMINAL (5 fallos → 1 min), no por usuario — sin identificar al usuario antes de acertar el PIN, el bloqueo atribuible solo puede hacerlo el servidor
-- **D-caja-4**: TODO descuento de línea exige PIN de supervisor (umbral local = 0) hasta que los settings del negocio se repliquen a la caja; el evento registra `supervisor_user_id`
+- **D-caja-4** (actualizada con @3a8fb67): el descuento pide PIN solo POR ENCIMA de `settings.max_discount_percent` (del bootstrap, aplica offline); el evento registra `supervisor_user_id`
+- **D-caja-7**: en cobro mixto el `amount` de cada pago se recorta a lo que FALTA; el cambio solo sale de filas de efectivo (`amount_tendered − amount`)
+- **D-caja-8**: `catalog_version` guardada es la de la PRIMERA página del pull (los cambios de mitad de descarga se re-traen en el próximo delta)
 - **D-caja-5**: balanza con precio embebido → línea `1.000 × total de la etiqueta` (la etiqueta es el hecho; el peso no viaja en el código y los montos cuadran al centavo). Peso embebido → `peso × precio del catálogo`
 - **D-caja-6**: multiplicador `n*` es de UN solo uso (se consume con el próximo escaneo) y no aplica a pesables
 
@@ -42,6 +44,16 @@
 ---
 
 ## Bitácora
+
+### 2026-06-07 — 4.4: COBRO + apertura de sesión + el primer evento firmado
+
+- **Fundación de eventos** (innegociable de CLAUDE.md cubierta): ULID propio monotónico (48+80 bits, mismo ms jamás se desordena), `occurred_at` ISO con offset local, `canonicalJson` + HMAC-SHA256 con WebCrypto que **reproduce byte a byte** `firma-hmac.json`
+- **`buildSaleCompletedPayload` reproduce campo a campo** el fixture del contrato; cliente inline solo sin id; `is_credit` por método; `buildSessionOpenedPayload` §4.3
+- **Apertura de sesión adelantada de 4.6** (sale.completed exige `cash_session_ulid`): fondo + Enter → `cash_session.opened` firmado al outbox (FIFO lo entrega antes que las ventas) → a vender. Guard login → ¿sesión? → apertura | venta. Pendiente de 4.6: cierre con arqueo CIEGO, retiros, reporte Z, sesión de OTRO cajero
+- **Pantalla COBRO** (ui-caja §6): EXACTO preseleccionado (pago justo = 2 pulsaciones), +100/+200/+500/+1000, cambio en vivo verde, mixto (Falta → 0 habilita), tarjeta/transf con referencia, crédito F7 (cliente registrado; sin cliente → F4; excede límite → PIN con el dato visible). CONFIRMAR: `ticket_number` local → evento firmado → outbox → venta limpia → toast "Venta #N — cambio RD$ X"
+- **Contrato @3a8fb67 integrado**: `departments.tax_category` (migración 0004) define la tasa de venta por departamento; settings curados del bootstrap (`max_discount_percent` gobierna el PIN del descuento en BigInt; `allow_department_sale` apaga el modal); se refrescan al abrir la app
+- **⏶ pendientes REALES** en la barra de estado (cuenta del outbox cada 30 s y tras cada venta)
+- **114 tests** · pendiente manual: flujo completo apertura → venta → cobro; impresión/gaveta = 4.5; worker de envío = 4.7
 
 ### 2026-06-07 — 4.3: pantalla de venta completa
 
