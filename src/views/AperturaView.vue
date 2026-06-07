@@ -7,6 +7,7 @@ import BotonAccion from "@/components/ui/BotonAccion.vue";
 import TecladoNumerico from "@/components/ui/TecladoNumerico.vue";
 import { formatMoney } from "@/lib/format";
 import { useCashierStore } from "@/stores/cashier";
+import { useOutboxStore } from "@/stores/outbox";
 import { useSessionStore } from "@/stores/session";
 
 /**
@@ -16,6 +17,7 @@ import { useSessionStore } from "@/stores/session";
 const router = useRouter();
 const cashier = useCashierStore();
 const session = useSessionStore();
+const outbox = useOutboxStore();
 
 const digits = ref(""); // centavos tecleados: "200000" = RD$ 2,000.00
 const opening = ref(false);
@@ -40,6 +42,7 @@ async function abrir() {
   opening.value = true;
   try {
     await session.open(amount.value, cashier.current.id);
+    void outbox.drainNow(); // cash_session.opened sale de inmediato
     await router.replace({ name: "venta" });
   } catch (e) {
     error.value = e instanceof Error ? e.message : "No se pudo abrir la sesión.";

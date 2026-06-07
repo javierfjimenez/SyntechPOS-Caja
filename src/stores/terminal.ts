@@ -24,6 +24,8 @@ interface TerminalState {
   maxDiscountPercent: number;
   allowDepartmentSale: boolean;
   ecfEnabled: boolean; // D21: facturación electrónica opcional por negocio
+  /** 401/403 del servidor: terminal desvinculada — flujo de re-vinculación pendiente */
+  revoked: boolean;
   online: boolean;
   appVersion: string;
   apiUrl: string;
@@ -54,6 +56,7 @@ export const useTerminalStore = defineStore("terminal", {
     maxDiscountPercent: 10,
     allowDepartmentSale: true,
     ecfEnabled: false, // conservador: sin QR hasta que el bootstrap diga lo contrario
+    revoked: false,
     online: false,
     appVersion: "0.0.0",
     apiUrl: DEFAULT_API_URL,
@@ -122,6 +125,12 @@ export const useTerminalStore = defineStore("terminal", {
       this.maxDiscountPercent = data.settings.max_discount_percent;
       this.allowDepartmentSale = data.settings.allow_department_sale;
       this.ecfEnabled = data.settings.ecf_enabled;
+    },
+
+    /** El servidor revocó el token (terminal robada/desvinculada desde el panel) */
+    markRevoked() {
+      this.revoked = true;
+      this.online = false;
     },
 
     /** Heartbeat: marca online/offline sin bloquear jamás la operación */

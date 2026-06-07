@@ -228,7 +228,7 @@ async function confirmar() {
       payload,
     });
     await enqueue(envelope);
-    await outbox.refresh();
+    void outbox.drainNow(); // el envío arranca ya — sin esperar por él
 
     // El ticket se arma ANTES de limpiar la venta (es el hecho legal impreso)
     const business = await ticketBusinessData();

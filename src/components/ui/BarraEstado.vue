@@ -32,11 +32,14 @@ onUnmounted(() => {
   clearInterval(heartbeatTimer);
 });
 
-const conexion = computed(() =>
-  terminal.online
+const conexion = computed(() => {
+  if (terminal.revoked) {
+    return { color: "text-danger", label: "Atención requerida — terminal desvinculada" };
+  }
+  return terminal.online
     ? { color: "text-success", label: "En línea" }
-    : { color: "text-warning", label: `Sin conexión — ${outbox.pending} pendientes de envío` },
-);
+    : { color: "text-warning", label: `Sin conexión — ${outbox.pending} pendientes de envío` };
+});
 
 const ubicacion = computed(() =>
   [terminal.terminalName, terminal.branchName].filter(Boolean).join(" · "),

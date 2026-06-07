@@ -23,6 +23,45 @@ export async function pendingCount(): Promise<number> {
   return rows[0]?.n ?? 0;
 }
 
+export interface OutboxRow {
+  ulid: string;
+  payload: string; // JSON del sobre firmado
+  attempts: number;
+}
+
+/** El próximo lote a enviar: en orden ULID (FIFO), respetando next_retry_at */
+export async function dueBatch(limit: number, now = new Date()): Promise<OutboxRow[]> {
+  const db = await getDb();
+  return db.select<OutboxRow[]>(
+    `SELECT ulid, payload, attempts FROM outbox
+     WHERE status <> 'confirmed' AND (next_retry_at IS NULL OR next_retry_at <= $1)
+     ORDER BY ulid LIMIT $2`,
+    [now.toISOString(), limit],
+  );
+}
+
+/** processed/duplicate/quarantined/deferred: TODOS confirman (endpoints.md §3) */
+export async function markConfirmed(ulids: string[]): Promise<void> {
+  if (ulids.length === 0) return;
+  const db = await getDb();
+  const placeholders = ulids.map((_, i) => `$${i + 1}`).join(", ");
+  await db.execute(
+    `UPDATE outbox SET status = 'confirmed', next_retry_at = NULL WHERE ulid IN (${placeholders})`,
+    ulids,
+  );
+}
+
+/** Fallo de red/5xx: el lote entero reintenta con backoff */
+export async function markRetry(ulids: string[], nextRetryAt: Date): Promise<void> {
+  if (ulids.length === 0) return;
+  const db = await getDb();
+  const placeholders = ulids.map((_, i) => `$${i + 2}`).join(", ");
+  await db.execute(
+    `UPDATE outbox SET attempts = attempts + 1, next_retry_at = $1 WHERE ulid IN (${placeholders})`,
+    [nextRetryAt.toISOString(), ...ulids],
+  );
+}
+
 /** Número de ticket local por terminal (uq terminal+ticket_number server-side) */
 export async function nextTicketNumber(): Promise<number> {
   const current = Number((await getMeta("next_ticket_number")) ?? "1");

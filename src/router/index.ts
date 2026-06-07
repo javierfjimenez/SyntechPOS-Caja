@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 
 import { useCashierStore } from "@/stores/cashier";
+import { useOutboxStore } from "@/stores/outbox";
 import { useSessionStore } from "@/stores/session";
 import { useSyncStore } from "@/stores/sync";
 import { useTerminalStore } from "@/stores/terminal";
@@ -42,6 +43,7 @@ router.beforeEach(async (to) => {
   }
 
   sync.start(); // pull al abrir + cada 5 min (idempotente)
+  useOutboxStore().start(); // worker del outbox: drena al abrir + cada 15 seg
 
   const cashier = useCashierStore();
   if (to.name !== "login" && cashier.current === null) {
