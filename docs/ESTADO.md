@@ -32,9 +32,9 @@
 
 ## Preguntas abiertas (para aterrizar en SyntechPOS si aplica)
 
-- [ ] **Detail de cuarentena con SQL crudo**: un ticket_number duplicado (uq_sales_ticket) pone el evento en cuarentena — correcto — pero el `detail` devuelve el SQLSTATE completo con el INSERT. Limpiar el mensaje en el procesador (forense al log, no al cliente)
-- [ ] **Seeder demo: agregar "Caja 2 (e2e)"** con `link_code 654321` — el e2e la consume en cada corrida y hoy se restaura a mano con tinker
-- [ ] **Emisión e-CF de prueba**: el poller de ecf-results está construido pero nunca ha visto un QR real — necesita que el servidor emita contra testecf (M7) para validar la reimpresión timbrada de punta a punta
+- [x] ~~Detail de cuarentena con SQL crudo~~ ✅ RESUELTA en SyntechPOS@42d1bd1: mensaje limpio con nombre de la constraint («Conflicto de unicidad (uq_sales_ticket): …»); el SQL completo va al log del servidor vía report()
+- [x] ~~Seeder demo: Caja 2 (e2e)~~ ✅ RESUELTA en SyntechPOS@42d1bd1: `link_code 654321`; el re-seed la revive (borra el token Sanctum y el hmac_secret) — adiós tinker
+- [x] ~~Emisión e-CF de prueba~~ ✅ DESBLOQUEADA en local por SyntechPOS@452e4aa: `PACIOLI_FAKE=true` (ya activo en el .env del servidor local) simula a Pacioli con QR REAL escaneable y aceptación al primer poll → el poller de ecf-results y la reimpresión timbrada se validan e2e HOY. La validación contra testecf real sigue esperando la API key (0.6)
 
 - [x] ~~Seeder sin row_version~~ ✅ RESUELTA en SyntechPOS@3a8fb67: WithoutModelEvents eliminado + test de regresión; además `BulkCatalogSeeder` (10k SKUs con barcode) para medir el CA 4.2: `php artisan db:seed --class=BulkCatalogSeeder`
 - [ ] **Flujo "Terminal desvinculada" sin construir en la caja**: si el servidor revoca el token (401/403), hoy la app queda atrapada con credenciales muertas. Falta la pantalla/flujo de re-vinculación (endpoints.md, códigos transversales) — agendar en 4.x
