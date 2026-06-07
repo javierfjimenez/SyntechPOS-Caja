@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
 
+import { useUiStore } from "@/stores/ui";
+
 /**
  * Modal transversal (ui-caja.md §9): captura el foco completo (focus-trap),
  * ESC cierra y al desmontarse DEVUELVE el foco a quien lo tenía — el escáner
- * jamás dispara al vacío (política de foco §1).
+ * jamás dispara al vacío (política de foco §1). Registra su apertura en el
+ * store de UI para que el InputEscaneo no re-capture el foco mientras tanto.
  */
 const emit = defineEmits<{ cerrar: [] }>();
+
+const ui = useUiStore();
 
 const panel = ref<HTMLElement | null>(null);
 let focoAnterior: HTMLElement | null = null;
@@ -44,11 +49,13 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 onMounted(() => {
+  ui.modalOpened();
   focoAnterior = document.activeElement as HTMLElement | null;
   (focusables()[0] ?? panel.value)?.focus();
 });
 
 onUnmounted(() => {
+  ui.modalClosed();
   focoAnterior?.focus();
 });
 </script>

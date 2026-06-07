@@ -32,6 +32,12 @@ pub fn run() {
             sql: include_str!("../migrations/0002_replica_completa.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "log local de códigos no reconocidos (ui-caja §9.2)",
+            sql: include_str!("../migrations/0003_codigos_desconocidos.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let app = tauri::Builder::default()

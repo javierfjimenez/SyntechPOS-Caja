@@ -19,12 +19,21 @@ interface TerminalState {
   terminalName: string | null;
   branchName: string | null;
   businessName: string | null;
+  scaleFormat: "weight" | "price";
   online: boolean;
   appVersion: string;
   apiUrl: string;
 }
 
-const META_KEYS = ["api_token", "hmac_secret", "terminal_id", "terminal_name", "branch_name", "business_name"];
+const META_KEYS = [
+  "api_token",
+  "hmac_secret",
+  "terminal_id",
+  "terminal_name",
+  "branch_name",
+  "business_name",
+  "scale_format",
+];
 
 export const useTerminalStore = defineStore("terminal", {
   state: (): TerminalState => ({
@@ -34,6 +43,7 @@ export const useTerminalStore = defineStore("terminal", {
     terminalName: null,
     branchName: null,
     businessName: null,
+    scaleFormat: "weight",
     online: false,
     appVersion: "0.0.0",
     apiUrl: DEFAULT_API_URL,
@@ -49,6 +59,7 @@ export const useTerminalStore = defineStore("terminal", {
       this.terminalName = meta.terminal_name ?? null;
       this.branchName = meta.branch_name ?? null;
       this.businessName = meta.business_name ?? null;
+      this.scaleFormat = meta.scale_format === "price" ? "price" : "weight";
       this.linked = this.token !== null;
       this.loaded = true;
     },
