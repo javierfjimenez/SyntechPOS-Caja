@@ -5,16 +5,17 @@
 ## 📍 AHORA
 
 - **Fase actual**: FASE 4 — POS de caja
-- **Tarea actual**: 4.2 construida — **e2e DESBLOQUEADO** (SyntechPOS@d9074fd: seeder con 20 productos de colmado, María PIN 1234 / Ana PIN 9999, cliente RNC, secuencias 31/32/34; re-vincular o re-sincronizar para bajarlo)
-- **Siguiente tarea**: e2e de 4.2 (re-sync contra server.test) → 4.3 Pantalla de venta
-- **Bloqueos**: ninguno · también resueltos allá: timezone -04:00 en server_time, validación en español
+- **Tarea actual**: 4.2 COMPLETA — e2e en verde contra server.test con el código de producción. Falta solo la verificación visual en la app (vincular con `123456` → descarga → login María `1234`)
+- **Siguiente tarea**: 4.3 Pantalla de venta (input siempre-enfocado, parser de balanza contra `scale-barcodes.json`, multiplicador `n*`)
+- **Bloqueos**: ninguno
   - [ ] Pendiente menor: `nvm alias default 22`
+  - [ ] Deuda de CA 4.2: medir 10k SKUs < 30 seg exige sembrar un catálogo grande (el demo tiene 20)
 
 ## Checklist Fase 4
 
 (ver CLAUDE.md — se marca aquí el avance)
 
-- [x] 4.1 · [~] 4.2 · [ ] 4.3 · [ ] 4.4 · [ ] 4.5 · [ ] 4.6 · [ ] 4.7 · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
+- [x] 4.1 · [x] 4.2 · [ ] 4.3 · [ ] 4.4 · [ ] 4.5 · [ ] 4.6 · [ ] 4.7 · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
 
 ## Decisiones locales de implementación (no de contrato)
 
@@ -24,6 +25,9 @@
 
 ## Preguntas abiertas (para aterrizar en SyntechPOS si aplica)
 
+- [ ] **Seeder demo no estampa `row_version`**: usa `WithoutModelEvents`, que silencia el trait `SyncsCatalogVersion` → todo queda en `row_version=0`, INVISIBLE para el delta (`> since`). Remediado a mano con `touch()` por fila (eventos activos); el fix real es que el seeder estampe versiones (quitar el trait o estampar explícito)
+- [ ] **Flujo "Terminal desvinculada" sin construir en la caja**: si el servidor revoca el token (401/403), hoy la app queda atrapada con credenciales muertas. Falta la pantalla/flujo de re-vinculación (endpoints.md, códigos transversales) — agendar en 4.x
+
 - [x] ~~426/X-Client-Version~~ ✅ RESUELTA en SyntechPOS@d9074fd: middleware `RequireMinimumClientVersion` en la bajada (catalog/ecf-results/bootstrap); `/sync/events` y `/ping` quedan FUERA a propósito (el outbox se drena antes de actualizar; el ping es quien INFORMA el mínimo). 426 trae `min_client_version` + `client_version` en el body
 - [x] ~~barcodes en el spec~~ ✅ RESUELTA en SyntechPOS@d9074fd: ejemplo corregido a objetos `[{ "barcode": "…" }]`
 - [x] ~~Lockout de PIN~~ ✅ RESPONDIDA en SyntechPOS@8f71b2a: ui-caja §3 reformulado a espera POR TERMINAL (lo implementado es lo correcto); el bloqueo atribuible lo hará el servidor al reconciliar
@@ -32,6 +36,13 @@
 ---
 
 ## Bitácora
+
+### 2026-06-07 — 4.2 CERRADA: e2e completo en verde contra el servidor real
+
+- `tests/e2e/flujo-completo.spec.ts` (se corre con `E2E=1 NODE_TLS_REJECT_UNAUTHORIZED=0 NODE_OPTIONS=--experimental-sqlite npm test`): vinculación con `123456` → bootstrap → pull paginado → réplica en SQLite REAL (node:sqlite con las mismas migraciones de la app) → **login PIN contra los `pin_hash` que bajó el delta** (María 1234 ✓, Ana supervisora 9999 ✓, PIN errado rechazado ✓) → ping con offset `-04:00` ✓
+- El e2e destapó el bug del seeder (`WithoutModelEvents` → `row_version=0` → delta vacío); remediado a mano, fix real pendiente en SyntechPOS (ver Preguntas abiertas)
+- El e2e consume el código de un solo uso: re-correr `php artisan db:seed` lo restaura. Credenciales locales de la app limpiadas para que la verificación visual arranque de cero
+- Detectado de paso: falta el flujo "Terminal desvinculada" en la caja (token revocado → re-vincular)
 
 ### 2026-06-06 — 4.2: delta-sync de catálogo (vinculación e2e OK contra server.test)
 
