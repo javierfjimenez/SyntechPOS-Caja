@@ -3,17 +3,16 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 
 import { formatTime } from "@/lib/format";
 import { useCashierStore } from "@/stores/cashier";
+import { useOutboxStore } from "@/stores/outbox";
 import { useTerminalStore } from "@/stores/terminal";
 
 /**
  * Barra de estado persistente (ui-caja.md §1): ● conexión, caja·sucursal,
- * ⏶ pendientes del outbox, cajero y hora. Altura fija 40px.
- * `pendientes` queda en 0 hasta que el outbox llegue (4.7).
+ * ⏶ pendientes del outbox (reales), cajero y hora. Altura fija 40px.
  */
 const terminal = useTerminalStore();
 const cashier = useCashierStore();
-
-const pendientes = 0; // outbox: tarea 4.7
+const outbox = useOutboxStore();
 
 const ahora = ref(new Date());
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -22,7 +21,11 @@ let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 onMounted(() => {
   timer = setInterval(() => (ahora.value = new Date()), 1000);
   void terminal.heartbeat();
-  heartbeatTimer = setInterval(() => void terminal.heartbeat(), 30_000);
+  void outbox.refresh();
+  heartbeatTimer = setInterval(() => {
+    void terminal.heartbeat();
+    void outbox.refresh();
+  }, 30_000);
 });
 onUnmounted(() => {
   clearInterval(timer);
@@ -32,7 +35,7 @@ onUnmounted(() => {
 const conexion = computed(() =>
   terminal.online
     ? { color: "text-success", label: "En línea" }
-    : { color: "text-warning", label: `Sin conexión — ${pendientes} pendientes de envío` },
+    : { color: "text-warning", label: `Sin conexión — ${outbox.pending} pendientes de envío` },
 );
 
 const ubicacion = computed(() =>
@@ -51,7 +54,7 @@ const ubicacion = computed(() =>
     <span class="text-text-dim">{{ ubicacion }}</span>
 
     <span class="ml-auto flex items-center gap-4">
-      <span v-if="cashier.current" class="text-text-dim">⏶ {{ pendientes }} pendientes</span>
+      <span v-if="cashier.current" class="text-text-dim">⏶ {{ outbox.pending }} pendientes</span>
       <span v-if="cashier.current" class="font-medium">{{ cashier.current.name }}</span>
       <span class="monto text-text-dim">{{ formatTime(ahora) }}</span>
     </span>

@@ -130,10 +130,9 @@ async function recover(id: number) {
   }
 }
 
-function cobrar() {
+async function cobrar() {
   if (sale.isEmpty) return;
-  // La pantalla de COBRO llega en la 4.4
-  ui.toast("exito", `Cobro de ${formatMoney(sale.totals.total)} — pantalla en construcción (4.4)`);
+  await router.push({ name: "cobro" });
 }
 
 // ── Menú (F10) ────────────────────────────────────────────────────────────────

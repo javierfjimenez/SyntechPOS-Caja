@@ -122,6 +122,17 @@ export interface CustomerRow {
   credit_balance: string | null;
 }
 
+/** Cliente por id (datos de crédito frescos para F7 — pueden cambiar con el delta) */
+export async function getCustomerById(id: number): Promise<CustomerRow | null> {
+  const db = await getDb();
+  const rows = await db.select<CustomerRow[]>(
+    `SELECT id, name, document_type, document_number, phone, credit_limit, credit_balance
+     FROM customers WHERE id = $1 AND is_active = 1 LIMIT 1`,
+    [id],
+  );
+  return rows[0] ?? null;
+}
+
 /** Búsqueda de clientes por nombre/documento (BuscadorCliente §9.3) */
 export async function searchCustomers(term: string, limit = 8): Promise<CustomerRow[]> {
   const db = await getDb();
