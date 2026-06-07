@@ -1,3 +1,5 @@
+mod printer;
+
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use tauri::{Emitter, Manager, RunEvent, WindowEvent};
@@ -55,7 +57,7 @@ pub fn run() {
                 .add_migrations("sqlite:syntechpos-caja.db", migrations)
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![authorize_exit])
+        .invoke_handler(tauri::generate_handler![authorize_exit, printer::print_raw])
         .setup(|app| {
             // Kiosk solo en release: en dev la ventana se maneja normal
             if !cfg!(debug_assertions) {

@@ -5,6 +5,7 @@ import { useRouter } from "vue-router";
 import BarraEstado from "@/components/ui/BarraEstado.vue";
 import BotonAccion from "@/components/ui/BotonAccion.vue";
 import BuscadorCliente from "@/components/ui/BuscadorCliente.vue";
+import ConfiguracionImpresora from "@/components/ui/ConfiguracionImpresora.vue";
 import EditarLinea from "@/components/ui/EditarLinea.vue";
 import InputEscaneo from "@/components/ui/InputEscaneo.vue";
 import ModalBase from "@/components/ui/ModalBase.vue";
@@ -35,7 +36,15 @@ const cashier = useCashierStore();
 const terminal = useTerminalStore();
 const ui = useUiStore();
 
-type Modal = null | "desconocido" | "cliente" | "suspendidas" | "editar" | "menu" | "confirmarCancelar";
+type Modal =
+  | null
+  | "desconocido"
+  | "cliente"
+  | "suspendidas"
+  | "editar"
+  | "menu"
+  | "confirmarCancelar"
+  | "impresora";
 const modal = ref<Modal>(null);
 const unknownCode = ref("");
 
@@ -259,9 +268,12 @@ function onFnKeys(e: KeyboardEvent) {
         <BotonAccion variante="secundario" @click="changeCashier">
           Bloquear / cambiar cajero
         </BotonAccion>
+        <BotonAccion variante="secundario" @click="modal = 'impresora'">Impresora</BotonAccion>
         <BotonAccion variante="secundario" @click="modal = null">Seguir vendiendo (ESC)</BotonAccion>
       </div>
     </ModalBase>
+
+    <ConfiguracionImpresora v-if="modal === 'impresora'" @cerrar="modal = null" />
 
     <ModalBase v-if="modal === 'confirmarCancelar'" @cerrar="modal = null">
       <div class="flex w-80 flex-col gap-4">

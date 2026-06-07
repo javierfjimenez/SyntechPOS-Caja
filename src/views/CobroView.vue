@@ -26,9 +26,11 @@ import {
   type MethodCode,
   type PaymentDraft,
 } from "@/services/payment";
+import { printSaleTicket, reprintLastTicket, ticketBusinessData } from "@/services/printer";
 import { getCustomerById } from "@/services/product-lookup";
 import { buildSaleCompletedPayload } from "@/services/sale-event";
 import type { SaleCustomer } from "@/services/sale";
+import type { TicketData } from "@/services/ticket";
 import type { UserRow } from "@/services/auth";
 import { useCashierStore } from "@/stores/cashier";
 import { useOutboxStore } from "@/stores/outbox";
@@ -216,24 +218,58 @@ async function confirmar() {
       cashierUserId: cashier.current.id,
     });
 
+    const occurredAt = new Date();
     const envelope = await buildEnvelope(secret, {
       ulid: ulid(),
       type: "sale.completed",
-      occurred_at: toIsoWithOffset(new Date()),
+      occurred_at: toIsoWithOffset(occurredAt),
       payload,
     });
     await enqueue(envelope);
     await outbox.refresh();
 
+    // El ticket se arma ANTES de limpiar la venta (es el hecho legal impreso)
+    const business = await ticketBusinessData();
+    const ticket: TicketData = {
+      business,
+      branch_name: business.branch_name,
+      terminal_name: business.terminal_name,
+      ticket_number: ticketNumber,
+      occurred_at: occurredAt,
+      cashier_name: cashier.current.name,
+      customer_name: sale.sale.customer?.name ?? null,
+      customer_document: sale.sale.customer?.document_number ?? null,
+      lines: [...sale.sale.lines],
+      totals: sale.totals,
+      payments: [...payments.value],
+      change: cambio.value,
+      ecf: null, // emisión e-CF: el QR llega con 4.7/4.9 (reimpresión timbrada)
+    };
+
     const vuelto = cambio.value;
+    const hayEfectivo = payments.value.some((p) => p.method_code === "cash");
     await sale.clear();
-    // Impresión del ticket + gaveta: tarea 4.5
+
     ui.toast(
       "exito",
       vuelto !== "0.00"
         ? `Venta #${ticketNumber} completada — cambio ${formatMoney(vuelto)}`
         : `Venta #${ticketNumber} completada`,
     );
+
+    // Imprimir + gaveta SIN bloquear: la venta ya está en el outbox
+    void printSaleTicket(ticket, hayEfectivo).catch((e: unknown) => {
+      ui.toast("error", `Ticket pendiente de imprimir: ${e instanceof Error ? e.message : e}`, {
+        action: {
+          label: "Reimprimir",
+          run: () =>
+            void reprintLastTicket().catch((err: unknown) =>
+              ui.toast("error", err instanceof Error ? err.message : String(err)),
+            ),
+        },
+      });
+    });
+
     await router.replace({ name: "venta" });
   } catch (e) {
     ui.toast("error", e instanceof Error ? e.message : "No se pudo completar la venta.");
