@@ -23,6 +23,7 @@ export interface ProductDelta {
 export interface DepartmentDelta {
   id: number;
   name: string;
+  tax_category: "ITBIS18" | "ITBIS16" | "ITBIS0" | "EXENTO";
   is_active: boolean;
   row_version: number;
 }
@@ -85,6 +86,10 @@ export interface BootstrapResult {
     phone: string | null;
     receipt_footer: string | null;
     scale_format: "weight" | "price";
+  };
+  settings: {
+    max_discount_percent: number;
+    allow_department_sale: boolean;
   };
   branch: { id: number; name: string | null; address: string | null };
   terminal: { id: number; name: string };

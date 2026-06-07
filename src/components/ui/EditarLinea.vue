@@ -5,13 +5,14 @@ import BotonAccion from "@/components/ui/BotonAccion.vue";
 import ModalBase from "@/components/ui/ModalBase.vue";
 import PinAutorizacion from "@/components/ui/PinAutorizacion.vue";
 import { formatMoney } from "@/lib/format";
-import type { SaleLine } from "@/services/sale";
+import { discountRequiresAuth, type SaleLine } from "@/services/sale";
 import type { UserRow } from "@/services/auth";
+import { useTerminalStore } from "@/stores/terminal";
 
 /**
  * F6 — editar cantidad/descuento de la línea (modal mini, ui-caja §5).
- * TODO descuento exige PIN de supervisor: sin réplica de settings aún, el
- * umbral local es 0 (decisión D-caja-4; el evento registra quién autorizó).
+ * Descuento POR ENCIMA del umbral del negocio (settings.max_discount_percent,
+ * bootstrap @3a8fb67) exige PIN de supervisor; el evento registra quién autorizó.
  */
 const props = defineProps<{ line: SaleLine }>();
 
@@ -20,12 +21,24 @@ const emit = defineEmits<{
   cerrar: [];
 }>();
 
+const terminal = useTerminalStore();
+
 const quantity = ref(props.line.quantity.endsWith(".000") ? props.line.quantity.slice(0, -4) : props.line.quantity);
 const discount = ref(props.line.discount_amount === "0.00" ? "" : props.line.discount_amount);
 const error = ref<string | null>(null);
 const askingPin = ref(false);
 
-const needsPin = computed(() => normalizedDiscount() !== props.line.discount_amount && normalizedDiscount() !== "0.00");
+const needsPin = computed(() => {
+  const disc = normalizedDiscount();
+  if (disc === "!" || disc === props.line.discount_amount) return false;
+  const qty = normalizedQty();
+  if (qty === null) return false;
+  return discountRequiresAuth(
+    { quantity: qty, unit_price: props.line.unit_price },
+    disc,
+    terminal.maxDiscountPercent,
+  );
+});
 
 function normalizedQty(): string | null {
   const t = quantity.value.trim();
@@ -83,7 +96,7 @@ function autorizado(supervisor: UserRow) {
       </label>
 
       <label class="flex flex-col gap-1 text-sm font-medium text-text-dim">
-        Descuento (RD$, pide PIN de supervisor)
+        Descuento (RD$; sobre {{ terminal.maxDiscountPercent }}% pide PIN)
         <input
           v-model="discount"
           type="text"

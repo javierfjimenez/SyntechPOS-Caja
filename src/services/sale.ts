@@ -131,6 +131,23 @@ export function computeTotals(lines: SaleLine[]): SaleTotals {
   };
 }
 
+/**
+ * ¿El descuento excede el umbral del negocio? (→ PIN de supervisor).
+ * `maxDiscountPercent` viene del bootstrap (settings curados, @3a8fb67) y
+ * se compara contra el bruto de la línea (cantidad × precio), sin floats.
+ */
+export function discountRequiresAuth(
+  line: Pick<SaleLine, "quantity" | "unit_price">,
+  discountAmount: string,
+  maxDiscountPercent: number,
+): boolean {
+  const discount = toCents(discountAmount);
+  if (discount === 0n) return false;
+  const gross = mulPriceQty(toCents(line.unit_price), toMilli(line.quantity));
+  const basisPoints = BigInt(Math.round(maxDiscountPercent * 100));
+  return discount * 10_000n > gross * basisPoints;
+}
+
 /** Subtotal visible (wireframe §5): suma de bases = total − ITBIS */
 export function subtotal(totals: SaleTotals): string {
   return fromCents(

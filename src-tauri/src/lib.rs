@@ -38,6 +38,12 @@ pub fn run() {
             sql: include_str!("../migrations/0003_codigos_desconocidos.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 4,
+            description: "tasa del departamento para venta por departamento (@3a8fb67)",
+            sql: include_str!("../migrations/0004_tasa_departamento.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let app = tauri::Builder::default()

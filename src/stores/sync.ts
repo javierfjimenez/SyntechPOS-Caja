@@ -89,6 +89,11 @@ export const useSyncStore = defineStore("sync", {
     start() {
       if (this.started) return;
       this.started = true;
+      // refresca settings/datos del ticket al abrir (cambian en el panel);
+      // sin red falla en silencio — los valores guardados siguen aplicando
+      void useTerminalStore()
+        .fetchBootstrap()
+        .catch(() => {});
       void this.syncNow();
       setInterval(() => void this.syncNow(), PULL_INTERVAL_MS);
     },

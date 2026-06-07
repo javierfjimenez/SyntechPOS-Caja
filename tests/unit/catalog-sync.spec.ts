@@ -114,7 +114,7 @@ describe("countRows", () => {
       countRows(
         page({
           products: [product(1)],
-          departments: [{ id: 1, name: "Abarrotes", is_active: true, row_version: 1 }],
+          departments: [{ id: 1, name: "Abarrotes", tax_category: "ITBIS18", is_active: true, row_version: 1 }],
           users: [{ id: 7, name: "María", role: "cashier", pin_hash: null, is_active: true, row_version: 1 }],
         }),
       ),

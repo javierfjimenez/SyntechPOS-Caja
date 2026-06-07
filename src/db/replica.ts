@@ -54,7 +54,7 @@ export function mapProduct(p: ProductDelta): unknown[] {
 }
 
 export function mapDepartment(d: DepartmentDelta): unknown[] {
-  return [d.id, d.name, bit(d.is_active), d.row_version];
+  return [d.id, d.name, d.tax_category, bit(d.is_active), d.row_version];
 }
 
 export function mapCustomer(c: CustomerDelta): unknown[] {
@@ -70,7 +70,7 @@ export function mapUser(u: UserDelta): unknown[] {
 }
 
 export const PRODUCT_COLUMNS = ["id", "name", "sku", "price", "cost", "tax_category", "is_weighable", "department_id", "is_active", "row_version"];
-export const DEPARTMENT_COLUMNS = ["id", "name", "is_active", "row_version"];
+export const DEPARTMENT_COLUMNS = ["id", "name", "tax_category", "is_active", "row_version"];
 export const CUSTOMER_COLUMNS = ["id", "name", "document_type", "document_number", "phone", "credit_limit", "credit_balance", "is_active", "row_version"];
 export const PAYMENT_METHOD_COLUMNS = ["id", "code", "name", "is_active", "row_version"];
 export const USER_COLUMNS = ["id", "name", "role", "pin_hash", "is_active", "row_version"];

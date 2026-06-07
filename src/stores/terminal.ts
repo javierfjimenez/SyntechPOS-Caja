@@ -20,6 +20,9 @@ interface TerminalState {
   branchName: string | null;
   businessName: string | null;
   scaleFormat: "weight" | "price";
+  /** Settings curados del negocio (bootstrap @3a8fb67) — aplican offline */
+  maxDiscountPercent: number;
+  allowDepartmentSale: boolean;
   online: boolean;
   appVersion: string;
   apiUrl: string;
@@ -33,6 +36,8 @@ const META_KEYS = [
   "branch_name",
   "business_name",
   "scale_format",
+  "setting_max_discount_percent",
+  "setting_allow_department_sale",
 ];
 
 export const useTerminalStore = defineStore("terminal", {
@@ -44,6 +49,8 @@ export const useTerminalStore = defineStore("terminal", {
     branchName: null,
     businessName: null,
     scaleFormat: "weight",
+    maxDiscountPercent: 10,
+    allowDepartmentSale: true,
     online: false,
     appVersion: "0.0.0",
     apiUrl: DEFAULT_API_URL,
@@ -60,6 +67,8 @@ export const useTerminalStore = defineStore("terminal", {
       this.branchName = meta.branch_name ?? null;
       this.businessName = meta.business_name ?? null;
       this.scaleFormat = meta.scale_format === "price" ? "price" : "weight";
+      this.maxDiscountPercent = Number(meta.setting_max_discount_percent ?? "10");
+      this.allowDepartmentSale = meta.setting_allow_department_sale !== "0";
       this.linked = this.token !== null;
       this.loaded = true;
     },
@@ -102,6 +111,11 @@ export const useTerminalStore = defineStore("terminal", {
       await setMeta("receipt_footer", data.business.receipt_footer ?? "");
       await setMeta("scale_format", data.business.scale_format);
       await setMeta("branch_address", data.branch.address ?? "");
+      await setMeta("setting_max_discount_percent", String(data.settings.max_discount_percent));
+      await setMeta("setting_allow_department_sale", data.settings.allow_department_sale ? "1" : "0");
+      this.scaleFormat = data.business.scale_format;
+      this.maxDiscountPercent = data.settings.max_discount_percent;
+      this.allowDepartmentSale = data.settings.allow_department_sale;
     },
 
     /** Heartbeat: marca online/offline sin bloquear jamás la operación */

@@ -103,12 +103,13 @@ export async function logUnknownCode(code: string): Promise<void> {
 export interface DepartmentRow {
   id: number;
   name: string;
+  tax_category: TaxCategory; // el departamento define la tasa (@3a8fb67)
 }
 
 export async function listDepartments(): Promise<DepartmentRow[]> {
   const db = await getDb();
   return db.select<DepartmentRow[]>(
-    "SELECT id, name FROM departments WHERE is_active = 1 ORDER BY name",
+    "SELECT id, name, tax_category FROM departments WHERE is_active = 1 ORDER BY name",
   );
 }
 

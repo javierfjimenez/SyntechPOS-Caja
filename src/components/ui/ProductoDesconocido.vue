@@ -5,13 +5,13 @@ import BotonAccion from "@/components/ui/BotonAccion.vue";
 import ModalBase from "@/components/ui/ModalBase.vue";
 import { listDepartments, logUnknownCode, type DepartmentRow } from "@/services/product-lookup";
 import type { SaleLine } from "@/services/sale";
+import { useTerminalStore } from "@/stores/terminal";
 
 /**
  * Código no registrado (ui-caja §9.2): venta por departamento (product_id
  * null — M5) / Reintentar / Cancelar. El código queda en el log local que el
- * backoffice mostrará como candidatos a alta.
- * Nota de contrato: el departamento no define tasa — v1 usa ITBIS18 por
- * defecto (pregunta abierta registrada en ESTADO.md).
+ * backoffice mostrará como candidatos a alta. La TASA la define el
+ * departamento (@3a8fb67); el permiso viene de settings del bootstrap.
  */
 const props = defineProps<{ code: string }>();
 
@@ -20,10 +20,15 @@ const emit = defineEmits<{
   cerrar: [];
 }>();
 
+const terminal = useTerminalStore();
+
 const departments = ref<DepartmentRow[]>([]);
 const departmentId = ref<number | null>(null);
 const price = ref("");
 const error = ref<string | null>(null);
+
+// settings del negocio: ¿se permite vender por departamento en esta caja?
+const allowed = terminal.allowDepartmentSale;
 
 onMounted(async () => {
   await logUnknownCode(props.code);
@@ -49,7 +54,7 @@ function agregar() {
     quantity: "1.000",
     unit_price: normalized,
     discount_amount: "0.00",
-    tax_category: "ITBIS18",
+    tax_category: dept.tax_category, // la tasa la define el departamento
     unit_cost: "0.0000",
     is_weighable: false,
   });
@@ -64,7 +69,12 @@ function agregar() {
         Código <span class="monto font-semibold text-text">{{ code }}</span> no está en el catálogo.
       </p>
 
-      <label class="flex flex-col gap-1 text-sm font-medium text-text-dim">
+      <p v-if="!allowed" class="rounded-lg bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
+        La venta por departamento está desactivada para este negocio.
+        Pide al dueño activarla en el panel o registrar el producto.
+      </p>
+
+      <label v-if="allowed" class="flex flex-col gap-1 text-sm font-medium text-text-dim">
         Departamento
         <select
           v-model="departmentId"
@@ -74,7 +84,7 @@ function agregar() {
         </select>
       </label>
 
-      <label class="flex flex-col gap-1 text-sm font-medium text-text-dim">
+      <label v-if="allowed" class="flex flex-col gap-1 text-sm font-medium text-text-dim">
         Precio
         <input
           v-model="price"
@@ -90,7 +100,7 @@ function agregar() {
 
       <div class="flex justify-end gap-2">
         <BotonAccion variante="secundario" @click="emit('cerrar')">Cancelar</BotonAccion>
-        <BotonAccion :disabled="departmentId === null" @click="agregar">
+        <BotonAccion v-if="allowed" :disabled="departmentId === null" @click="agregar">
           Venta por departamento
         </BotonAccion>
       </div>
