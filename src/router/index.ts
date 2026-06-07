@@ -1,12 +1,13 @@
 import { createRouter, createWebHistory } from "vue-router";
 
 import { useCashierStore } from "@/stores/cashier";
+import { useSessionStore } from "@/stores/session";
 import { useSyncStore } from "@/stores/sync";
 import { useTerminalStore } from "@/stores/terminal";
 
 /**
  * Mapa de navegación (ui-caja.md §1): Vinculación (una vez) → Login PIN →
- * Venta. La pantalla de Apertura de sesión se intercala en la tarea 4.6.
+ * ¿sesión abierta? → Apertura | Venta ⇄ Cobro.
  */
 const router = createRouter({
   history: createWebHistory(),
@@ -14,7 +15,9 @@ const router = createRouter({
     { path: "/", redirect: { name: "venta" } },
     { path: "/vincular", name: "vincular", component: () => import("@/views/VinculacionView.vue") },
     { path: "/login", name: "login", component: () => import("@/views/LoginView.vue") },
+    { path: "/apertura", name: "apertura", component: () => import("@/views/AperturaView.vue") },
     { path: "/venta", name: "venta", component: () => import("@/views/VentaView.vue") },
+    { path: "/cobro", name: "cobro", component: () => import("@/views/CobroView.vue") },
   ],
 });
 
@@ -43,6 +46,18 @@ router.beforeEach(async (to) => {
   const cashier = useCashierStore();
   if (to.name !== "login" && cashier.current === null) {
     return { name: "login" };
+  }
+
+  // Cajero dentro: ¿hay sesión de caja abierta? (ui-caja §1)
+  if (cashier.current !== null) {
+    const session = useSessionStore();
+    await session.load();
+    if (!session.isOpen && to.name !== "apertura" && to.name !== "login") {
+      return { name: "apertura" };
+    }
+    if (session.isOpen && to.name === "apertura") {
+      return { name: "venta" };
+    }
   }
   return true;
 });
