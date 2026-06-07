@@ -11,20 +11,25 @@ import {
   remainingSeconds,
   type LockoutState,
 } from "@/lib/lockout";
+import { useSyncStore } from "@/stores/sync";
 import { useTerminalStore } from "@/stores/terminal";
 
 /**
  * Pantalla 1 — Vinculación (ui-caja.md §2). Una sola vez por terminal; el
- * ÚNICO flujo que exige internet. 5 códigos errados → espera de 1 minuto.
- * La descarga de catálogo con progreso llega con el delta-sync (4.2).
+ * ÚNICO flujo que exige internet. Tras validar el código: bootstrap (datos
+ * del ticket) + descarga del catálogo completo con progreso real.
+ * 5 códigos errados → espera de 1 minuto.
  */
 const router = useRouter();
 const terminal = useTerminalStore();
+const sync = useSyncStore();
 
 const CODE_LENGTH = 6;
+const fase = ref<"codigo" | "descargando">("codigo");
 const codigo = ref("");
 const enviando = ref(false);
 const error = ref<string | null>(null);
+const filas = ref(0);
 const lock = ref<LockoutState>(initialLockout);
 const ahora = ref(Date.now());
 
@@ -33,21 +38,49 @@ let timer: ReturnType<typeof setInterval> | undefined;
 const espera = computed(() => remainingSeconds(lock.value, ahora.value));
 const completo = computed(() => codigo.value.length === CODE_LENGTH);
 
+async function descargarCatalogo() {
+  fase.value = "descargando";
+  error.value = null;
+  await terminal.fetchBootstrap();
+  const ok = await sync.syncNow(true, (rows) => (filas.value = rows));
+  if (!ok) {
+    throw new ApiError("La descarga del catálogo se interrumpió.", null);
+  }
+  await router.replace({ name: "login" });
+}
+
 async function vincular() {
   if (!completo.value || enviando.value || isLocked(lock.value, Date.now())) return;
   enviando.value = true;
   error.value = null;
   try {
     await terminal.link(codigo.value);
-    await router.replace({ name: "login" });
+    await descargarCatalogo();
   } catch (e) {
-    codigo.value = "";
-    if (e instanceof ApiError && e.status === null) {
-      error.value = "Sin conexión. Necesitas internet solo para este paso.";
+    if (fase.value === "descargando") {
+      // El código YA validó: solo falta repetir la descarga (botón Reintentar)
+      error.value = "La descarga del catálogo se interrumpió. Revisa la conexión y reintenta.";
     } else {
-      error.value = e instanceof ApiError ? e.message : "Error inesperado. Intenta de nuevo.";
-      lock.value = registerFailure(lock.value, Date.now());
+      codigo.value = "";
+      if (e instanceof ApiError && e.status === null) {
+        error.value = "Sin conexión. Necesitas internet solo para este paso.";
+      } else {
+        error.value = e instanceof ApiError ? e.message : "Error inesperado. Intenta de nuevo.";
+        lock.value = registerFailure(lock.value, Date.now());
+      }
     }
+  } finally {
+    enviando.value = false;
+  }
+}
+
+async function reintentarDescarga() {
+  if (enviando.value) return;
+  enviando.value = true;
+  try {
+    await descargarCatalogo();
+  } catch {
+    error.value = "La descarga del catálogo se interrumpió. Revisa la conexión y reintenta.";
   } finally {
     enviando.value = false;
   }
@@ -55,6 +88,7 @@ async function vincular() {
 
 // Teclado físico: dígitos + Backspace + Enter — sin campo visible que apuntar
 function onKeydown(e: KeyboardEvent) {
+  if (fase.value !== "codigo") return;
   if (/^[0-9]$/.test(e.key) && codigo.value.length < CODE_LENGTH) {
     codigo.value += e.key;
     error.value = null;
@@ -71,6 +105,10 @@ function onKeydown(e: KeyboardEvent) {
 onMounted(() => {
   window.addEventListener("keydown", onKeydown);
   timer = setInterval(() => (ahora.value = Date.now()), 1000);
+  // Reabrió la app con la descarga a medias (vinculada pero sin catálogo): retomar
+  if (terminal.linked) {
+    void reintentarDescarga();
+  }
 });
 onUnmounted(() => {
   window.removeEventListener("keydown", onKeydown);
@@ -83,33 +121,45 @@ onUnmounted(() => {
     <h1 class="text-4xl font-bold text-primary">SyntechPOS</h1>
     <p class="text-xl text-text">Vincula esta caja a tu negocio</p>
 
-    <p class="text-center text-text-dim">
-      Pide el código en el panel del negocio:<br />
-      <span class="font-medium text-text">Configuración → Cajas → Vincular caja</span>
-    </p>
+    <template v-if="fase === 'codigo'">
+      <p class="text-center text-text-dim">
+        Pide el código en el panel del negocio:<br />
+        <span class="font-medium text-text">Configuración → Cajas → Vincular caja</span>
+      </p>
 
-    <div class="flex gap-3 py-4" aria-label="Código de vinculación">
-      <span
-        v-for="i in CODE_LENGTH"
-        :key="i"
-        class="monto flex h-16 w-12 items-center justify-center rounded-lg border-2 bg-surface text-3xl font-bold"
-        :class="i === codigo.length + 1 ? 'border-primary' : 'border-border'"
-      >
-        {{ codigo[i - 1] ?? "" }}
-      </span>
-    </div>
+      <div class="flex gap-3 py-4" aria-label="Código de vinculación">
+        <span
+          v-for="i in CODE_LENGTH"
+          :key="i"
+          class="monto flex h-16 w-12 items-center justify-center rounded-lg border-2 bg-surface text-3xl font-bold"
+          :class="i === codigo.length + 1 ? 'border-primary' : 'border-border'"
+        >
+          {{ codigo[i - 1] ?? "" }}
+        </span>
+      </div>
 
-    <p v-if="espera > 0" class="font-medium text-warning">
-      Demasiados intentos. Espera {{ espera }} segundos.
-    </p>
-    <p v-else-if="error" class="font-medium text-danger">{{ error }}</p>
+      <p v-if="espera > 0" class="font-medium text-warning">
+        Demasiados intentos. Espera {{ espera }} segundos.
+      </p>
+      <p v-else-if="error" class="font-medium text-danger">{{ error }}</p>
 
-    <BotonAccion
-      grande
-      :disabled="!completo || enviando || espera > 0"
-      @click="vincular"
-    >
-      {{ enviando ? "Vinculando…" : "Vincular caja" }}
-    </BotonAccion>
+      <BotonAccion grande :disabled="!completo || enviando || espera > 0" @click="vincular">
+        {{ enviando ? "Vinculando…" : "Vincular caja" }}
+      </BotonAccion>
+    </template>
+
+    <template v-else>
+      <div class="flex flex-col items-center gap-3 py-4">
+        <p v-if="!error" class="text-lg text-text">
+          ▸ Descargando catálogo…
+          <span class="monto font-semibold">{{ filas.toLocaleString("en-US") }}</span> filas
+        </p>
+        <p v-else class="font-medium text-danger">{{ error }}</p>
+      </div>
+
+      <BotonAccion v-if="error" grande :disabled="enviando" @click="reintentarDescarga">
+        {{ enviando ? "Descargando…" : "Reintentar descarga" }}
+      </BotonAccion>
+    </template>
   </main>
 </template>

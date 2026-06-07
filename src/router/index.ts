@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 
-import { seedDevUsers } from "@/db/seed-dev";
 import { useCashierStore } from "@/stores/cashier";
+import { useSyncStore } from "@/stores/sync";
 import { useTerminalStore } from "@/stores/terminal";
 
 /**
@@ -20,17 +20,25 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const terminal = useTerminalStore();
+  const sync = useSyncStore();
   if (!terminal.loaded) {
     await terminal.load();
-    await seedDevUsers(); // no-op fuera de desarrollo
+    await sync.load();
   }
 
   if (!terminal.linked) {
     return to.name === "vincular" ? true : { name: "vincular" };
   }
+
+  // Vinculada pero el primer pull nunca cerró (descarga interrumpida): retomar
+  if (!sync.hasSynced) {
+    return to.name === "vincular" ? true : { name: "vincular" };
+  }
   if (to.name === "vincular") {
     return { name: "login" }; // ya vinculada: la pantalla 1 no se repite
   }
+
+  sync.start(); // pull al abrir + cada 5 min (idempotente)
 
   const cashier = useCashierStore();
   if (to.name !== "login" && cashier.current === null) {

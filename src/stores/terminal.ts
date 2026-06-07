@@ -2,6 +2,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { defineStore } from "pinia";
 
 import { DEFAULT_API_URL } from "@/api/client";
+import { getBootstrap } from "@/api/sync";
 import { linkTerminal, ping } from "@/api/terminals";
 import { getMetaMany, setMeta } from "@/db";
 
@@ -69,6 +70,27 @@ export const useTerminalStore = defineStore("terminal", {
       this.branchName = result.terminal.branch;
       this.businessName = result.terminal.business;
       this.linked = true;
+    },
+
+    /**
+     * GET /sync/bootstrap tras vincular: los datos del negocio/sucursal que
+     * el ticket imprime (4.5) quedan en catalog_meta — disponibles offline.
+     */
+    async fetchBootstrap() {
+      if (!this.token) return;
+      const data = await getBootstrap({
+        baseUrl: this.apiUrl,
+        appVersion: this.appVersion,
+        token: this.token,
+      });
+      await setMeta("business_rnc", data.business.rnc);
+      await setMeta("business_legal_name", data.business.legal_name);
+      await setMeta("business_trade_name", data.business.trade_name);
+      await setMeta("business_address", data.business.address ?? "");
+      await setMeta("business_phone", data.business.phone ?? "");
+      await setMeta("receipt_footer", data.business.receipt_footer ?? "");
+      await setMeta("scale_format", data.business.scale_format);
+      await setMeta("branch_address", data.branch.address ?? "");
     },
 
     /** Heartbeat: marca online/offline sin bloquear jamás la operación */
