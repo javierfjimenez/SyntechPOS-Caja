@@ -29,10 +29,10 @@
 
 ## Preguntas abiertas (para aterrizar en SyntechPOS si aplica)
 
-- [ ] **Seeder demo no estampa `row_version`**: usa `WithoutModelEvents`, que silencia el trait `SyncsCatalogVersion` → todo queda en `row_version=0`, INVISIBLE para el delta (`> since`). Remediado a mano con `touch()` por fila (eventos activos); el fix real es que el seeder estampe versiones (quitar el trait o estampar explícito)
+- [x] ~~Seeder sin row_version~~ ✅ RESUELTA en SyntechPOS@3a8fb67: WithoutModelEvents eliminado + test de regresión; además `BulkCatalogSeeder` (10k SKUs con barcode) para medir el CA 4.2: `php artisan db:seed --class=BulkCatalogSeeder`
 - [ ] **Flujo "Terminal desvinculada" sin construir en la caja**: si el servidor revoca el token (401/403), hoy la app queda atrapada con credenciales muertas. Falta la pantalla/flujo de re-vinculación (endpoints.md, códigos transversales) — agendar en 4.x
-- [ ] **¿Qué tasa lleva la venta por departamento?** El departamento no define `tax_category`; v1 usa ITBIS18 por defecto (lo más conservador recauda de más en ITBIS0/EXENTO). Opciones: columna `tax_category` en departments (spec + servidor) o selector en el modal
-- [ ] **¿Los settings del negocio bajan a la caja?** (umbral de descuento, permiso de venta por departamento, etc.) Hoy no viajan ni en bootstrap ni en delta — definir en SyntechPOS
+- [x] ~~Tasa de venta por departamento~~ ✅ RESUELTA en SyntechPOS@3a8fb67: `departments.tax_category` (default ITBIS18; Frutas y Verduras EXENTO en el demo) — ya viaja en el delta; la caja debe usar la tasa del departamento en el modal
+- [x] ~~Settings del negocio~~ ✅ RESUELTA en SyntechPOS@3a8fb67: `GET /sync/bootstrap` ahora trae `settings` con claves CURADAS: `max_discount_percent` (default 10) y `allow_department_sale` (default true) — editables en el panel; la caja los aplica offline y los refresca al re-bootstrapear
 
 - [x] ~~426/X-Client-Version~~ ✅ RESUELTA en SyntechPOS@d9074fd: middleware `RequireMinimumClientVersion` en la bajada (catalog/ecf-results/bootstrap); `/sync/events` y `/ping` quedan FUERA a propósito (el outbox se drena antes de actualizar; el ping es quien INFORMA el mínimo). 426 trae `min_client_version` + `client_version` en el body
 - [x] ~~barcodes en el spec~~ ✅ RESUELTA en SyntechPOS@d9074fd: ejemplo corregido a objetos `[{ "barcode": "…" }]`
