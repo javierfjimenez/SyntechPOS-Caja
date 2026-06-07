@@ -4,19 +4,20 @@
 
 ## 📍 AHORA
 
-- **Fase actual**: FASE 4 — POS de caja
-- **Tarea actual**: 4.6 COMPLETA — la jornada entera funciona: apertura → ventas → retiros → arqueo ciego → Z → login. 4.5 sigue pendiente solo del hardware
-- **Siguiente tarea**: 4.8 Devoluciones (NC tipo 34 con PIN supervisor) o 4.9 Contingencia/reimpresión — ambas necesitan datos de e-CF del servidor
-- **Bloqueos**: ninguno
+- **Fase actual**: FASE 4 — POS de caja — **TODAS las tareas construidas**
+- **Pendientes de hardware/infra** (no de código):
+  - [ ] 4.5: validar impresión con la 2Connect física (F10 → Impresora → prueba; checklist en `SyntechPOS/docs/specs/hardware.md`)
+  - [ ] 4.10: auto-update — necesita infra de releases (endpoint + firma de binarios, Tauri updater); agendar con el primer empaquetado de producción
+  - [ ] Deuda de CA 4.2: `php artisan db:seed --class=BulkCatalogSeeder` y medir pull de 10k
+  - [ ] Deuda de CA fase: cronometrar 20 items < 60 seg con cajera real + jornada con WiFi apagado (fase 9, piloto)
   - [ ] Pendiente menor: `nvm alias default 22`
-  - [ ] Deuda de CA 4.2: correr `php artisan db:seed --class=BulkCatalogSeeder` y medir el pull de 10k
-  - [ ] Deuda de CA 4.3: cronometrar venta de 20 items < 60 seg con cajera real (fase 9)
+- **Siguiente**: prueba manual integral de Javier (guía en la bitácora) → ajustes → empaquetado
 
 ## Checklist Fase 4
 
 (ver CLAUDE.md — se marca aquí el avance)
 
-- [x] 4.1 · [x] 4.2 · [x] 4.3 · [x] 4.4 · [~] 4.5 (falta validar con hardware) · [x] 4.6 · [x] 4.7 · [ ] 4.8 · [ ] 4.9 · [ ] 4.10 · [ ] 4.11 · [ ] 4.12
+- [x] 4.1 · [x] 4.2 · [x] 4.3 · [x] 4.4 · [~] 4.5 (código listo; falta hardware) · [x] 4.6 · [x] 4.7 · [x] 4.8 · [x] 4.9 · [~] 4.10 (falta auto-update: infra) · [x] 4.11 · [x] 4.12
 
 ## Decisiones locales de implementación (no de contrato)
 
@@ -30,6 +31,10 @@
 - **D-caja-6**: multiplicador `n*` es de UN solo uso (se consume con el próximo escaneo) y no aplica a pesables
 
 ## Preguntas abiertas (para aterrizar en SyntechPOS si aplica)
+
+- [ ] **Detail de cuarentena con SQL crudo**: un ticket_number duplicado (uq_sales_ticket) pone el evento en cuarentena — correcto — pero el `detail` devuelve el SQLSTATE completo con el INSERT. Limpiar el mensaje en el procesador (forense al log, no al cliente)
+- [ ] **Seeder demo: agregar "Caja 2 (e2e)"** con `link_code 654321` — el e2e la consume en cada corrida y hoy se restaura a mano con tinker
+- [ ] **Emisión e-CF de prueba**: el poller de ecf-results está construido pero nunca ha visto un QR real — necesita que el servidor emita contra testecf (M7) para validar la reimpresión timbrada de punta a punta
 
 - [x] ~~Seeder sin row_version~~ ✅ RESUELTA en SyntechPOS@3a8fb67: WithoutModelEvents eliminado + test de regresión; además `BulkCatalogSeeder` (10k SKUs con barcode) para medir el CA 4.2: `php artisan db:seed --class=BulkCatalogSeeder`
 - [ ] **Flujo "Terminal desvinculada" sin construir en la caja**: si el servidor revoca el token (401/403), hoy la app queda atrapada con credenciales muertas. Falta la pantalla/flujo de re-vinculación (endpoints.md, códigos transversales) — agendar en 4.x
@@ -45,6 +50,26 @@
 ---
 
 ## Bitácora
+
+### 2026-06-07 — 4.8 + 4.9 + 4.10 + 4.11 + 4.12: la fase queda construida completa
+
+- **4.8 Devoluciones** (8 tests): búsqueda del ticket PROPIO en el outbox; `returnableQuantities` descuenta NCs previas (no se devuelve dos veces); PIN supervisor SIEMPRE; NC tipo 34 con cantidades POSITIVAS + reembolso en efectivo + ticket impreso (abre gaveta). Con e-CF activo exige comprobante resuelto. **El e2e envía una NC real → `processed`** ✓
+- **4.9 Contingencia**: poller de `/sync/ecf-results` cada 30 seg SOLO con ventas sin QR (D21: apagado sin e-CF); cursor persistido; reimpresión timbrada reconstruida desde el SOBRE del outbox (jamás abre gaveta)
+- **4.10 Pantalla Estado** (la consola de confianza, wireframe §8): conexión con edad del último ping, cola de envío + Sincronizar ahora, comprobantes pendientes con Reimprimir timbrado, catálogo + Actualizar, prueba de impresora, sesión actual, versión de la app. Accesible desde F10. **Auto-update queda como deuda de INFRA** (endpoint + firma de binarios)
+- **4.12 Versionado**: `min_client_version` comparado en cada ping y cada lote del worker → barra "Actualización requerida — puedes seguir vendiendo"; `/sync/events` exento de 426 por contrato (el flush jamás se bloquea)
+- **4.11**: `SyntechPOS/docs/specs/hardware.md` creado — matriz con checklists de certificación (2Connect en certificación; el resto pendiente de enchufar)
+- El e2e destapó: ticket_number duplicado → cuarentena con SQL crudo en el detail (anotado); e2e ahora usa tickets únicos por corrida
+- **157 tests unit + e2e completo en verde** (vincular → catálogo → login → sesión → venta → reenvío idempotente → devolución, todo contra el servidor real)
+
+#### Guía de prueba manual integral (para Javier)
+
+1. `npm run tauri dev` → login `1234` → apertura (ej. 2000) → ventas variadas (código `20011`, búsqueda "arroz", `3*`, balanza `2020012003453`, código falso `999999` → departamento)
+2. Cobros: exacto (F12+Enter), con cambio (`150000`), mixto (efectivo parcial + F3 tarjeta), crédito (F4 cliente COLMADO → F7)
+3. F10 → Devolución: busca un ticket → media devolución → PIN `9999` → verifica que no deja devolver dos veces
+4. F10 → Retiro 500 → F10 → Reporte X → F10 → Cierre: arqueo ciego (prueba declarar exacto y declarar con 50 de más → nota + PIN)
+5. Estado (F10): pendientes a 0 con el servidor arriba; apaga Herd → vende → ⏶ sube → prende Herd → baja solo
+6. Con la impresora conectada: F10 → Impresora → prueba (checklist en hardware.md)
+7. Backoffice: las ventas/NC/sesiones de la caja deben estar ahí
 
 ### 2026-06-07 — 4.6 CERRADA: arqueo ciego, retiros y reportes Z/X
 
