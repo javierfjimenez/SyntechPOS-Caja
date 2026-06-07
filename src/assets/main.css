@@ -1,0 +1,47 @@
+/* Tokens de DISENO.md §3-5 — LEY para toda pantalla. Cero CSS ad-hoc por pantalla. */
+@import "tailwindcss";
+
+@theme {
+  /* Colores base (provisionales hasta branding — DISENO §3) */
+  --color-primary: #0f766e; /* teal-700 — UNA acción principal por pantalla */
+  --color-primary-hi: #14b8a6; /* teal-500 — hover, acentos */
+  --color-bg: #f8fafc; /* slate-50 — fondo general */
+  --color-surface: #ffffff; /* tarjetas, paneles */
+  --color-text: #0f172a; /* slate-900 */
+  --color-text-dim: #64748b; /* slate-500 */
+  --color-border: #e2e8f0; /* slate-200 */
+
+  /* Semánticos SAGRADOS: verde=éxito, ámbar=pendiente/contingencia, rojo=atención */
+  --color-success: #16a34a; /* green-600 */
+  --color-warning: #d97706; /* amber-600 */
+  --color-danger: #dc2626; /* red-600 */
+  --color-info: #2563eb; /* blue-600 */
+
+  /* Tipografía (DISENO §4): Inter; mono SOLO montos, códigos y e-NCF */
+  --font-sans: "Inter Variable", Inter, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", monospace;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    /* Legible a 1 metro; sin zoom del SO */
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* La caja es una app, no una página: nada de seleccionar/arrastrar por accidente */
+  body {
+    user-select: none;
+    overflow: hidden;
+    margin: 0;
+  }
+
+  /* Montos: mono tabular alineado a la derecha (DISENO §4) — clase utilitaria global */
+  .monto {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
