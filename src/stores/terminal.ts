@@ -5,6 +5,7 @@ import { DEFAULT_API_URL } from "@/api/client";
 import { getBootstrap } from "@/api/sync";
 import { linkTerminal, ping } from "@/api/terminals";
 import { getMetaMany, setMeta } from "@/db";
+import { applyTheme, resolveTheme } from "@/lib/theme";
 import { updateRequired } from "@/lib/version";
 
 /**
@@ -46,6 +47,8 @@ const META_KEYS = [
   "setting_max_discount_percent",
   "setting_allow_department_sale",
   "setting_ecf_enabled",
+  "theme_primary",
+  "theme_primary_hi",
 ];
 
 export const useTerminalStore = defineStore("terminal", {
@@ -82,6 +85,8 @@ export const useTerminalStore = defineStore("terminal", {
       this.maxDiscountPercent = Number(meta.setting_max_discount_percent ?? "10");
       this.allowDepartmentSale = meta.setting_allow_department_sale !== "0";
       this.ecfEnabled = meta.setting_ecf_enabled === "1";
+      // Tema white-label (D26): aplicar el guardado al arrancar (offline)
+      applyTheme(resolveTheme({ primary: meta.theme_primary, primary_hi: meta.theme_primary_hi }));
       this.linked = this.token !== null;
       this.loaded = true;
     },
@@ -132,6 +137,11 @@ export const useTerminalStore = defineStore("terminal", {
       this.maxDiscountPercent = data.settings.max_discount_percent;
       this.allowDepartmentSale = data.settings.allow_department_sale;
       this.ecfEnabled = data.settings.ecf_enabled;
+      // Tema white-label (D26): guardar y re-tematizar al instante
+      const theme = resolveTheme(data.settings.theme);
+      await setMeta("theme_primary", theme.primary);
+      await setMeta("theme_primary_hi", theme.primaryHi);
+      applyTheme(theme);
     },
 
     /** El servidor revocó el token (terminal robada/desvinculada desde el panel) */

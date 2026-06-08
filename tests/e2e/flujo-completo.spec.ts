@@ -61,10 +61,12 @@ describe.runIf(RUN)("flujo completo contra el servidor real", () => {
 
     const opts = { baseUrl: BASE_URL, appVersion: APP_VERSION, token: link.token };
 
-    // 2. Bootstrap: datos del ticket
+    // 2. Bootstrap: datos del ticket + tema white-label (D26)
     const boot = await getBootstrap(opts);
     expect(boot.business.rnc).toMatch(/^\d{9}$/);
     expect(["weight", "price"]).toContain(boot.business.scale_format);
+    expect(boot.settings.theme?.primary).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    expect(boot.settings.theme?.primary_hi).toMatch(/^#[0-9A-Fa-f]{6}$/);
 
     // 3. Pull completo a una réplica SQLite real (mismas migraciones de la app)
     const db = await makeDb();

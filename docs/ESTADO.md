@@ -33,7 +33,7 @@
 
 ## Preguntas abiertas (para aterrizar en SyntechPOS si aplica)
 
-- [ ] **🆕 WHITE-LABEL: tema de marca por negocio** — HABILITADO en SyntechPOS@c561c83 (D26). El `GET /sync/bootstrap` ahora trae `settings.theme = { key, primary, primary_hi }` (hex listos). La caja debe: (1) guardar el tema al bootstrapear/re-bootstrapear, (2) aplicar `primary` → token `--color-primary` y `primary_hi` → `--color-primary-hi` en runtime (los tokens ya son variables CSS → re-tematiza al instante, offline), (3) NO tocar los semánticos (verde/rojo/ámbar/azul no cambian). Temas: `teal|cobalt|magenta|violeta|grafito`. Tolerar ausencia de `theme` (servidor viejo) → usar el tema por defecto. Spec: eventos-sync §7.3 + DISENO §3.1.
+- [x] ~~🆕 WHITE-LABEL: tema de marca por negocio (D26)~~ ✅ IMPLEMENTADO (2026-06-08): `lib/theme.ts` (`resolveTheme` puro + `applyTheme` sobre `--color-primary`/`--color-primary-hi`). El store guarda el tema en `catalog_meta` al bootstrapear y lo aplica; al ARRANCAR re-tematiza desde lo guardado (offline, antes del primer render). Tolera servidor viejo (`theme?` → default teal). Semánticos intactos. Verificado e2e contra el servidor real (`theme {teal, #0F766E, #14B8A6}`) y que `bg-primary` compila a `var(--color-primary)` → re-tematiza al instante. 5 tests del resolver
 - [x] ~~Detail de cuarentena con SQL crudo~~ ✅ RESUELTA en SyntechPOS@42d1bd1: mensaje limpio con nombre de la constraint («Conflicto de unicidad (uq_sales_ticket): …»); el SQL completo va al log del servidor vía report()
 - [x] ~~Seeder demo: Caja 2 (e2e)~~ ✅ RESUELTA en SyntechPOS@42d1bd1: `link_code 654321`; el re-seed la revive (borra el token Sanctum y el hmac_secret) — adiós tinker
 - [x] ~~Emisión e-CF de prueba~~ ✅ DESBLOQUEADA en local por SyntechPOS@452e4aa: `PACIOLI_FAKE=true` (ya activo en el .env del servidor local) simula a Pacioli con QR REAL escaneable y aceptación al primer poll → el poller de ecf-results y la reimpresión timbrada se validan e2e HOY. La validación contra testecf real sigue esperando la API key (0.6)
@@ -64,6 +64,12 @@
 ---
 
 ## Bitácora
+
+### 2026-06-08 — White-label: tema de marca por negocio (D26)
+
+- `settings.theme = { key, primary, primary_hi }` baja en el bootstrap. `lib/theme.ts`: `resolveTheme` (puro, tolera ausencia/hex inválido → default teal) + `applyTheme` que sobreescribe SOLO `--color-primary`/`--color-primary-hi` en `:root`
+- El store del terminal guarda el tema en `catalog_meta` y lo aplica al re-bootstrapear; al ARRANCAR re-tematiza desde lo guardado (offline). Los semánticos (verde/rojo/ámbar/azul) NO se tocan
+- Confirmado que `bg-primary` compila a `var(--color-primary)` → el override en runtime re-tematiza al instante. Servidor real entrega el tema (verificado e2e). 5 tests del resolver · **196 tests** + e2e
 
 ### 2026-06-08 — Re-vinculación + anulación de venta + build de release
 
