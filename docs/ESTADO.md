@@ -38,8 +38,8 @@
 - [x] ~~Emisión e-CF de prueba~~ ✅ DESBLOQUEADA en local por SyntechPOS@452e4aa: `PACIOLI_FAKE=true` (ya activo en el .env del servidor local) simula a Pacioli con QR REAL escaneable y aceptación al primer poll → el poller de ecf-results y la reimpresión timbrada se validan e2e HOY. La validación contra testecf real sigue esperando la API key (0.6)
 
 - [x] ~~Seeder sin row_version~~ ✅ RESUELTA en SyntechPOS@3a8fb67: WithoutModelEvents eliminado + test de regresión; además `BulkCatalogSeeder` (10k SKUs con barcode) para medir el CA 4.2: `php artisan db:seed --class=BulkCatalogSeeder`
-- [ ] **Flujo "Terminal desvinculada" sin construir en la caja**: si el servidor revoca el token (401/403), hoy la app queda atrapada con credenciales muertas. Falta la pantalla/flujo de re-vinculación (endpoints.md, códigos transversales) — agendar en 4.x
-- [ ] **⚠️ SALVEDAD anulación `sale.voided` con UI** (validación de contrato, ver bitácora 2026-06-08): construirla SOLO para los casos seguros — venta SIN e-CF o con e-CF aún NO aceptado por DGII. El caso "e-CF YA ACEPTADO" es **pregunta normativa ABIERTA** en SyntechPOS@19d38e9 (eventos-sync §4, línea 432: pendiente de confirmar con Pacioli, tarea 0.7). Para ese caso: forzar NC tipo 34 o dejarlo detrás de la respuesta de Pacioli. La caja NO debe ofrecer "anular" un comprobante ya timbrado hasta resolverlo
+- [x] ~~Flujo "Terminal desvinculada"~~ ✅ CONSTRUIDO (2026-06-08): 401/403 → `markRevoked()` → guard a la pantalla 1 con banner "Esta caja fue desvinculada" + advertencia si hay pendientes; reconectar con código nuevo limpia revoked. **Salvedad conocida**: los eventos del outbox firmados con el hmac_secret viejo se cuarentenan server-side tras re-vincular (nuevo secret) — se conservan (no se borran) y el banner avisa; recuperación fina queda para hardening
+- [x] ~~SALVEDAD anulación `sale.voided` con UI~~ ✅ CONSTRUIDA (2026-06-08) respetando la salvedad: `canVoidSale` BLOQUEA la anulación si la venta tiene CUALQUIER e-CF resuelto (`ecf_results`) → redirige a Devolución (NC 34). Solo se permite anular ventas sin comprobante (ecf_enabled=false o e-CF aún en contingencia). El caso "e-CF ya aceptado" jamás llega a ofrecerse. Anulación desde Transacciones recientes con motivo + PIN supervisor; el arqueo excluye anuladas
 - [x] ~~🆕 Marcas (Brand) se replican~~ ✅ IMPLEMENTADO (tanda grid 2026-06-08): tabla `brands` local (migración 0006), `brand_id` guardado en products, filtro por marca en el grid (F3). Tolera servidor viejo (`brands?` opcional)
 - [x] ~~🆕 GRID DE PRODUCTOS con avatar — DESBLOQUEADO~~ ✅ IMPLEMENTADO (tanda grid 2026-06-08): `GridProductos.vue` (F3 + barra) con avatar determinista (`lib/avatar.ts`), filtro depto/marca, click=+1, +/- por tile y carrito, peso para pesables. Migración 0006 guarda `image_url`/`brand_id` y fuerza re-pull completo una vez para backfill. **La spec original (abajo) cumplida punto por punto.** Pendiente Fase 2: descargar y cachear imágenes reales cuando `image_url` deje de ser null.
   ORIGINAL (cumplida):
@@ -63,6 +63,13 @@
 ---
 
 ## Bitácora
+
+### 2026-06-08 — Re-vinculación + anulación de venta + build de release
+
+- **Re-vinculación** (cierra el último hueco funcional antes del piloto): el guard manda a la pantalla 1 cuando `terminal.revoked`; banner "Esta caja fue desvinculada" + advertencia de pendientes; reconectar con código nuevo limpia `revoked` y la cajera re-autentica. La descarga no se auto-reintenta con token muerto
+- **Anulación de venta** (`sale.voided`, eventos-sync §4.2): desde Transacciones recientes, botón **Anular** por fila (badge ANULADA + tachado en las ya anuladas). `canVoidSale` respeta la salvedad normativa — **bloquea si la venta tiene e-CF resuelto** y redirige a Devolución (NC 34). Motivo + PIN supervisor → evento al outbox. El **arqueo excluye las ventas anuladas** (su efectivo no está en gaveta)
+- **192 tests** unit + **e2e ampliado**: el servidor real procesa nuestro `sale.voided` → `processed` (venta nueva → procesada → anulada → procesada). Servidor verificado: valida `reason` 3-255 + `supervisor_user_id`, revierte el kardex, idempotente
+- **Build de release** (`npm run tauri build`): compila el binario real (validación de empaquetado)
 
 ### 2026-06-08 — Grid de productos + cantidades con +/- (D24/D23)
 
