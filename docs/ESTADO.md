@@ -39,6 +39,7 @@
 
 - [x] ~~Seeder sin row_version~~ ✅ RESUELTA en SyntechPOS@3a8fb67: WithoutModelEvents eliminado + test de regresión; además `BulkCatalogSeeder` (10k SKUs con barcode) para medir el CA 4.2: `php artisan db:seed --class=BulkCatalogSeeder`
 - [ ] **Flujo "Terminal desvinculada" sin construir en la caja**: si el servidor revoca el token (401/403), hoy la app queda atrapada con credenciales muertas. Falta la pantalla/flujo de re-vinculación (endpoints.md, códigos transversales) — agendar en 4.x
+- [ ] **⚠️ SALVEDAD anulación `sale.voided` con UI** (validación de contrato, ver bitácora 2026-06-08): construirla SOLO para los casos seguros — venta SIN e-CF o con e-CF aún NO aceptado por DGII. El caso "e-CF YA ACEPTADO" es **pregunta normativa ABIERTA** en SyntechPOS@19d38e9 (eventos-sync §4, línea 432: pendiente de confirmar con Pacioli, tarea 0.7). Para ese caso: forzar NC tipo 34 o dejarlo detrás de la respuesta de Pacioli. La caja NO debe ofrecer "anular" un comprobante ya timbrado hasta resolverlo
 - [x] ~~D21 ecf_enabled~~ ✅ APLICADA en el ticket (4.5): `settings.ecf_enabled` baja en bootstrap y aplica offline (default conservador false); sin e-CF no hay QR ni leyenda. Queda pendiente aplicarla en la pantalla de Estado (4.10) y en el polling de ecf-results (4.9)
 - [x] ~~Tasa de venta por departamento~~ ✅ RESUELTA en SyntechPOS@3a8fb67: `departments.tax_category` (default ITBIS18; Frutas y Verduras EXENTO en el demo) — ya viaja en el delta; la caja debe usar la tasa del departamento en el modal
 - [x] ~~Settings del negocio~~ ✅ RESUELTA en SyntechPOS@3a8fb67: `GET /sync/bootstrap` ahora trae `settings` con claves CURADAS: `max_discount_percent` (default 10) y `allow_department_sale` (default true) — editables en el panel; la caja los aplica offline y los refresca al re-bootstrapear
@@ -51,6 +52,18 @@
 ---
 
 ## Bitácora
+
+### 2026-06-08 — Validación de contrato de la capa UX (revisión desde SyntechPOS)
+
+Revisión del `ROADMAP-UX.md` y de las 4 funcionalidades construidas hecha desde el repo del contrato (rol de guardián D20). **Veredicto: APROBADO.**
+
+- **Reglas respetadas**: disciplina de foco impecable — `BarraAcciones` con `tabindex="-1"` y `ModalBase` con focus-trap que DEVUELVE el foco al escáner al cerrar + registro en el store de UI (honra ui-caja §1, "el escáner nunca dispara al vacío"). Calculadora en `BigInt` exacto como `lib/decimal.ts`. Tokens de DISENO, SVG inline, NADA copiado de UltimatePOS.
+- **Afirmaciones de contrato verificadas contra SyntechPOS@aa40c24**:
+  - ✅ `sale.voided` ya existe en el contrato (eventos-sync §4.2) y el servidor ya lo procesa (`SyncEventProcessor::saleVoided` + `EventValidator`) — el roadmap acierta: solo falta la UI
+  - ✅ `ecf_type` es `TINYINT` en el esquema, soporta más que 31/34
+  - ✅ Imágenes y marcas SÍ tocan el servidor (no hay tabla de marcas ni columna de imagen en el delta) → bien clasificadas como v2
+- **Priorización razonable**: para supermercado-con-escáner el grid visual importa menos (se escanea el ~95%); reservar el grid-texto para granel es el llamado correcto.
+- **⚠️ Salvedad registrada arriba** (preguntas abiertas): la anulación con UI es segura para venta sin e-CF / e-CF no aceptado; el caso "ya aceptado por DGII" depende de la respuesta normativa de Pacioli (0.7). No bloquea el piloto, pero no ofrecer "anular" un comprobante ya timbrado hasta resolverlo.
 
 ### 2026-06-08 — Capa UX: paridad con POS estándar (4 funcionalidades + roadmap)
 
