@@ -5,6 +5,7 @@
  * botones son tabindex=-1: JAMÁS roban el foco del input de escaneo (§1).
  */
 const emit = defineEmits<{
+  productos: [];
   calculadora: [];
   pantallaCompleta: [];
   recientes: [];
@@ -17,6 +18,21 @@ const emit = defineEmits<{
   <nav
     class="flex h-10 shrink-0 items-center gap-1 border-b border-border bg-surface px-2 select-none"
   >
+    <button
+      type="button"
+      tabindex="-1"
+      class="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-primary hover:bg-bg"
+      title="Productos (F3)"
+      @click="emit('productos')"
+    >
+      <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path d="M3 3h6v6H3V3zm8 0h6v6h-6V3zM3 11h6v6H3v-6zm8 0h6v6h-6v-6z" />
+      </svg>
+      Productos
+    </button>
+
+    <span class="mx-1 h-5 w-px bg-border" aria-hidden="true"></span>
+
     <button
       type="button"
       tabindex="-1"

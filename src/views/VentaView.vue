@@ -10,6 +10,7 @@ import BuscadorCliente from "@/components/ui/BuscadorCliente.vue";
 import Calculadora from "@/components/ui/Calculadora.vue";
 import ConfiguracionImpresora from "@/components/ui/ConfiguracionImpresora.vue";
 import EditarLinea from "@/components/ui/EditarLinea.vue";
+import GridProductos from "@/components/ui/GridProductos.vue";
 import InputEscaneo from "@/components/ui/InputEscaneo.vue";
 import ModalBase from "@/components/ui/ModalBase.vue";
 import MovimientoEfectivo from "@/components/ui/MovimientoEfectivo.vue";
@@ -56,7 +57,8 @@ type Modal =
   | "impresora"
   | "movimiento"
   | "calculadora"
-  | "recientes";
+  | "recientes"
+  | "productos";
 
 async function pantallaCompleta() {
   try {
@@ -233,6 +235,9 @@ async function changeCashier() {
 function onFnKeys(e: KeyboardEvent) {
   if (ui.modalOpen) return;
   switch (e.key) {
+    case "F3":
+      modal.value = "productos";
+      break;
     case "F4":
       modal.value = "cliente";
       break;
@@ -265,6 +270,7 @@ function onFnKeys(e: KeyboardEvent) {
   <div class="flex h-screen flex-col bg-bg">
     <BarraEstado />
     <BarraAcciones
+      @productos="modal = 'productos'"
       @calculadora="modal = 'calculadora'"
       @pantalla-completa="pantallaCompleta"
       @recientes="modal = 'recientes'"
@@ -286,6 +292,8 @@ function onFnKeys(e: KeyboardEvent) {
           :lines="sale.sale.lines"
           :selected-index="sale.selectedIndex"
           @seleccionar="sale.selectedIndex = $event"
+          @incrementar="sale.incrementLine($event)"
+          @decrementar="sale.decrementLine($event)"
         />
       </section>
 
@@ -302,6 +310,7 @@ function onFnKeys(e: KeyboardEvent) {
     <PieAtajos
       :atajos="[
         { tecla: 'F2', label: 'Buscar' },
+        { tecla: 'F3', label: 'Productos' },
         { tecla: 'F4', label: 'Cliente' },
         { tecla: 'F6', label: 'Cant/Desc línea' },
         { tecla: 'F8', label: 'Suspender' },
@@ -314,6 +323,8 @@ function onFnKeys(e: KeyboardEvent) {
     <ToastCaja />
 
     <!-- Modales (uno a la vez; ModalBase devuelve el foco al cerrar) -->
+    <GridProductos v-if="modal === 'productos'" @cerrar="modal = null" />
+
     <Calculadora v-if="modal === 'calculadora'" @cerrar="modal = null" />
 
     <TransaccionesRecientes v-if="modal === 'recientes'" @cerrar="modal = null" />

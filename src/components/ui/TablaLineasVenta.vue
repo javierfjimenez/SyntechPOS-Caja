@@ -13,7 +13,11 @@ const props = defineProps<{
   selectedIndex: number;
 }>();
 
-const emit = defineEmits<{ seleccionar: [index: number] }>();
+const emit = defineEmits<{
+  seleccionar: [index: number];
+  incrementar: [index: number];
+  decrementar: [index: number];
+}>();
 
 const body = ref<HTMLElement | null>(null);
 
@@ -36,7 +40,7 @@ function qty(line: SaleLine): string {
 <template>
   <div class="flex h-full flex-col">
     <div
-      class="grid grid-cols-[5rem_1fr_7rem_7rem] gap-2 border-b border-border px-3 py-2 text-sm font-semibold text-text-dim select-none"
+      class="grid grid-cols-[7.5rem_1fr_7rem_7rem] gap-2 border-b border-border px-3 py-2 text-sm font-semibold text-text-dim select-none"
     >
       <span>CANT</span>
       <span>PRODUCTO</span>
@@ -49,12 +53,35 @@ function qty(line: SaleLine): string {
         v-for="(line, i) in lines"
         :key="i"
         :data-line="i"
-        class="grid cursor-pointer grid-cols-[5rem_1fr_7rem_7rem] gap-2 px-3 py-2 text-[17px]"
+        class="grid cursor-pointer grid-cols-[7.5rem_1fr_7rem_7rem] items-center gap-2 px-3 py-2 text-[17px]"
         :class="i === selectedIndex ? 'bg-primary/10 font-medium' : 'hover:bg-bg'"
         @click="emit('seleccionar', i)"
       >
-        <span class="monto">
-          <span v-if="i === selectedIndex" aria-hidden="true">▸</span>{{ qty(line) }}
+        <span class="flex items-center gap-1">
+          <template v-if="!line.is_weighable">
+            <button
+              type="button"
+              tabindex="-1"
+              aria-label="Quitar uno"
+              class="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-surface text-lg leading-none text-text-dim hover:bg-bg"
+              @click.stop="emit('decrementar', i)"
+            >
+              −
+            </button>
+            <span class="monto w-7 text-center">{{ qty(line) }}</span>
+            <button
+              type="button"
+              tabindex="-1"
+              aria-label="Agregar uno"
+              class="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-surface text-lg leading-none text-primary hover:bg-bg"
+              @click.stop="emit('incrementar', i)"
+            >
+              +
+            </button>
+          </template>
+          <span v-else class="monto">
+            <span v-if="i === selectedIndex" aria-hidden="true">▸</span>{{ qty(line) }}
+          </span>
         </span>
         <span class="truncate">
           {{ line.description }}
