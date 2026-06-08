@@ -38,6 +38,11 @@ router.beforeEach(async (to) => {
     return to.name === "vincular" ? true : { name: "vincular" };
   }
 
+  // Terminal revocada por el servidor (401/403): re-vincular antes de seguir
+  if (terminal.revoked) {
+    return to.name === "vincular" ? true : { name: "vincular" };
+  }
+
   // Vinculada pero el primer pull nunca cerró (descarga interrumpida): retomar
   if (!sync.hasSynced) {
     return to.name === "vincular" ? true : { name: "vincular" };

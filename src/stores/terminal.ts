@@ -103,6 +103,7 @@ export const useTerminalStore = defineStore("terminal", {
       this.branchName = result.terminal.branch;
       this.businessName = result.terminal.business;
       this.linked = true;
+      this.revoked = false; // re-vinculación exitosa: la caja vuelve a operar
     },
 
     /**
