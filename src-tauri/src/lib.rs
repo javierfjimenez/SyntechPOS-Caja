@@ -19,6 +19,14 @@ fn authorize_exit(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+/// Alterna pantalla completa (herramienta de UX). NO toca decoraciones: el
+/// kiosk en release sigue intacto (sin barra de título ni botón de cerrar).
+#[tauri::command]
+fn toggle_fullscreen(window: tauri::Window) -> Result<(), String> {
+    let full = window.is_fullscreen().map_err(|e| e.to_string())?;
+    window.set_fullscreen(!full).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let migrations = vec![
@@ -63,7 +71,11 @@ pub fn run() {
                 .add_migrations("sqlite:syntechpos-caja.db", migrations)
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![authorize_exit, printer::print_raw])
+        .invoke_handler(tauri::generate_handler![
+            authorize_exit,
+            toggle_fullscreen,
+            printer::print_raw
+        ])
         .setup(|app| {
             // Kiosk solo en release: en dev la ventana se maneja normal
             if !cfg!(debug_assertions) {
