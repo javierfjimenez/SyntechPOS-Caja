@@ -23,42 +23,46 @@ const sub = computed(() => subtotal(props.totals));
 
 <template>
   <aside class="flex h-full flex-col gap-3 border-l border-border bg-surface p-4">
-    <div class="flex items-center justify-between text-[15px]">
-      <span class="text-text-dim">Cliente:</span>
-      <button
-        type="button"
-        tabindex="-1"
-        class="font-medium text-primary hover:underline"
-        @click="emit('cambiarCliente')"
-      >
-        {{ customerName ?? "Consumidor final" }} <span class="text-text-dim">[F4]</span>
-      </button>
-    </div>
+    <!-- Cliente + desglose + TOTAL agrupados al fondo (mt-auto empuja el bloque
+         entero hacia abajo, justo sobre COBRAR — sin hueco muerto) -->
+    <div class="mt-auto flex flex-col gap-3">
+      <div class="flex items-center justify-between text-[15px]">
+        <span class="text-text-dim">Cliente:</span>
+        <button
+          type="button"
+          tabindex="-1"
+          class="font-medium text-primary hover:underline"
+          @click="emit('cambiarCliente')"
+        >
+          {{ customerName ?? "Consumidor final" }} <span class="text-text-dim">[F4]</span>
+        </button>
+      </div>
 
-    <dl class="space-y-1.5 border-t border-border pt-3 text-[15px]">
-      <div class="flex justify-between">
-        <dt class="text-text-dim">Subtotal</dt>
-        <dd class="monto">{{ formatMoney(sub) }}</dd>
-      </div>
-      <div class="flex justify-between">
-        <dt class="text-text-dim">ITBIS 18%</dt>
-        <dd class="monto">{{ formatMoney(totals.taxed18_itbis) }}</dd>
-      </div>
-      <div v-if="totals.taxed16_itbis !== '0.00'" class="flex justify-between">
-        <dt class="text-text-dim">ITBIS 16%</dt>
-        <dd class="monto">{{ formatMoney(totals.taxed16_itbis) }}</dd>
-      </div>
-      <div class="flex justify-between">
-        <dt class="text-text-dim">Descuento</dt>
-        <dd class="monto">{{ formatMoney(totals.discount_total) }}</dd>
-      </div>
-    </dl>
+      <dl class="space-y-1.5 border-t border-border pt-3 text-[15px]">
+        <div class="flex justify-between">
+          <dt class="text-text-dim">Subtotal</dt>
+          <dd class="monto">{{ formatMoney(sub) }}</dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-text-dim">ITBIS 18%</dt>
+          <dd class="monto">{{ formatMoney(totals.taxed18_itbis) }}</dd>
+        </div>
+        <div v-if="totals.taxed16_itbis !== '0.00'" class="flex justify-between">
+          <dt class="text-text-dim">ITBIS 16%</dt>
+          <dd class="monto">{{ formatMoney(totals.taxed16_itbis) }}</dd>
+        </div>
+        <div class="flex justify-between">
+          <dt class="text-text-dim">Descuento</dt>
+          <dd class="monto">{{ formatMoney(totals.discount_total) }}</dd>
+        </div>
+      </dl>
 
-    <div class="mt-auto border-t border-border pt-3">
-      <p class="text-sm font-semibold text-text-dim">TOTAL</p>
-      <p class="monto text-[56px] leading-tight font-bold text-text">
-        {{ formatMoney(totals.total) }}
-      </p>
+      <div class="border-t border-border pt-3">
+        <p class="text-sm font-semibold text-text-dim">TOTAL</p>
+        <p class="monto text-[56px] leading-tight font-bold text-text">
+          {{ formatMoney(totals.total) }}
+        </p>
+      </div>
     </div>
 
     <BotonAccion grande :disabled="disabled" @click="emit('cobrar')">
