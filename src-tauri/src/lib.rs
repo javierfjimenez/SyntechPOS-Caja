@@ -60,6 +60,12 @@ pub fn run() {
             sql: include_str!("../migrations/0005_cierre_de_sesion.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 6,
+            description: "grid de productos: brand_id/image_url en products + tabla brands (D24/D23)",
+            sql: include_str!("../migrations/0006_grid_marcas_imagen.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     let app = tauri::Builder::default()

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { CatalogPage, ProductDelta } from "@/api/sync";
 import {
   applyCatalogPage,
+  mapBrand,
   mapCustomer,
   mapProduct,
   mapUser,
@@ -30,6 +31,8 @@ const PRODUCT: ProductDelta = {
   tax_category: "ITBIS18",
   is_weighable: false,
   department_id: 3,
+  brand_id: 4,
+  image_url: null,
   is_active: true,
   row_version: 1431,
   barcodes: [{ barcode: "7461234567890" }, { barcode: "7460000000001" }],
@@ -49,15 +52,23 @@ function page(partial: Partial<CatalogPage>): CatalogPage {
 }
 
 describe("mapeos delta → fila SQLite (montos como string, booleanos a 0/1)", () => {
-  it("producto: price/cost quedan como string (jamás floats en lo fiscal)", () => {
+  it("producto: price/cost quedan como string; brand_id e image_url incluidos (D23/D24)", () => {
     const row = mapProduct(PRODUCT);
-    expect(row).toEqual([88, "Arroz Selecto 5lb", "ARZ-5", "75.00", "61.5000", "ITBIS18", 0, 3, 1, 1431]);
+    expect(row).toEqual([88, "Arroz Selecto 5lb", "ARZ-5", "75.00", "61.5000", "ITBIS18", 0, 3, 4, null, 1, 1431]);
     expect(typeof row[3]).toBe("string");
     expect(typeof row[4]).toBe("string");
   });
 
+  it("producto sin marca: brand_id null (atributo opcional)", () => {
+    expect(mapProduct({ ...PRODUCT, brand_id: null })[8]).toBeNull();
+  });
+
   it("la BAJA viaja como is_active=0 (se upsertea, no se borra)", () => {
-    expect(mapProduct({ ...PRODUCT, is_active: false })[8]).toBe(0);
+    expect(mapProduct({ ...PRODUCT, is_active: false })[10]).toBe(0);
+  });
+
+  it("marca: id/name/activo/versión", () => {
+    expect(mapBrand({ id: 4, name: "Marca Prueba", is_active: true, row_version: 9 })).toEqual([4, "Marca Prueba", 1, 9]);
   });
 
   it("usuario: pin_hash viaja tal cual para el login offline", () => {
@@ -102,16 +113,26 @@ describe("applyCatalogPage (upserts y reemplazo de códigos de barras)", () => {
     expect(db.calls).toEqual([]);
   });
 
-  it("chunking: 200 productos de 10 columnas caben en 3 sentencias (límite 999 params)", async () => {
+  it("chunking: 200 productos de 12 columnas respetan el límite de params (≤900)", async () => {
     const db = new RecordingDb();
     const products = Array.from({ length: 200 }, (_, i) => ({ ...PRODUCT, id: i + 1, barcodes: [] }));
     await applyCatalogPage(db, page({ products }));
 
     const inserts = db.calls.filter((c) => c.sql.startsWith("INSERT INTO products"));
-    expect(inserts).toHaveLength(3); // ⌈200 / 90⌉
+    expect(inserts).toHaveLength(3); // ⌈200 / 75⌉
     for (const call of inserts) {
       expect(call.params.length).toBeLessThanOrEqual(900);
     }
-    expect(inserts.reduce((n, c) => n + c.params.length, 0)).toBe(200 * 10);
+    expect(inserts.reduce((n, c) => n + c.params.length, 0)).toBe(200 * 12);
+  });
+
+  it("las marcas se upsertean (D23); sin brands en el delta no rompe (servidor viejo)", async () => {
+    const conMarcas = new RecordingDb();
+    await applyCatalogPage(conMarcas, page({ brands: [{ id: 4, name: "Marca", is_active: true, row_version: 1 }] }));
+    expect(conMarcas.calls.some((c) => c.sql.startsWith("INSERT INTO brands"))).toBe(true);
+
+    const sinMarcas = new RecordingDb();
+    await applyCatalogPage(sinMarcas, page({ products: [PRODUCT] })); // brands undefined
+    expect(sinMarcas.calls.some((c) => c.sql.startsWith("INSERT INTO brands"))).toBe(false);
   });
 });

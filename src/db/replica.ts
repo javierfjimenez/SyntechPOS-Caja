@@ -1,4 +1,5 @@
 import type {
+  BrandDelta,
   CatalogPage,
   CustomerDelta,
   DepartmentDelta,
@@ -50,11 +51,15 @@ async function upsertChunked(
 // ── Mapeos fila-del-delta → fila-SQLite (puros, testeados en Vitest) ──────────
 
 export function mapProduct(p: ProductDelta): unknown[] {
-  return [p.id, p.name, p.sku, p.price, p.cost, p.tax_category, bit(p.is_weighable), p.department_id, bit(p.is_active), p.row_version];
+  return [p.id, p.name, p.sku, p.price, p.cost, p.tax_category, bit(p.is_weighable), p.department_id, p.brand_id ?? null, p.image_url ?? null, bit(p.is_active), p.row_version];
 }
 
 export function mapDepartment(d: DepartmentDelta): unknown[] {
   return [d.id, d.name, d.tax_category, bit(d.is_active), d.row_version];
+}
+
+export function mapBrand(b: BrandDelta): unknown[] {
+  return [b.id, b.name, bit(b.is_active), b.row_version];
 }
 
 export function mapCustomer(c: CustomerDelta): unknown[] {
@@ -69,8 +74,9 @@ export function mapUser(u: UserDelta): unknown[] {
   return [u.id, u.name, u.role, u.pin_hash, bit(u.is_active), u.row_version];
 }
 
-export const PRODUCT_COLUMNS = ["id", "name", "sku", "price", "cost", "tax_category", "is_weighable", "department_id", "is_active", "row_version"];
+export const PRODUCT_COLUMNS = ["id", "name", "sku", "price", "cost", "tax_category", "is_weighable", "department_id", "brand_id", "image_url", "is_active", "row_version"];
 export const DEPARTMENT_COLUMNS = ["id", "name", "tax_category", "is_active", "row_version"];
+export const BRAND_COLUMNS = ["id", "name", "is_active", "row_version"];
 export const CUSTOMER_COLUMNS = ["id", "name", "document_type", "document_number", "phone", "credit_limit", "credit_balance", "is_active", "row_version"];
 export const PAYMENT_METHOD_COLUMNS = ["id", "code", "name", "is_active", "row_version"];
 export const USER_COLUMNS = ["id", "name", "role", "pin_hash", "is_active", "row_version"];
@@ -105,6 +111,7 @@ export async function applyCatalogPage(db: DbExecutor, page: CatalogPage): Promi
   await upsertChunked(db, "products", PRODUCT_COLUMNS, page.products.map(mapProduct));
   await replaceBarcodes(db, page.products);
   await upsertChunked(db, "departments", DEPARTMENT_COLUMNS, page.departments.map(mapDepartment));
+  await upsertChunked(db, "brands", BRAND_COLUMNS, (page.brands ?? []).map(mapBrand));
   await upsertChunked(db, "customers", CUSTOMER_COLUMNS, page.customers.map(mapCustomer));
   await upsertChunked(db, "payment_methods", PAYMENT_METHOD_COLUMNS, page.payment_methods.map(mapPaymentMethod));
   await upsertChunked(db, "users", USER_COLUMNS, page.users.map(mapUser));

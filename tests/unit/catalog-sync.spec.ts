@@ -26,6 +26,8 @@ const product = (id: number): CatalogPage["products"][number] => ({
   tax_category: "ITBIS18",
   is_weighable: false,
   department_id: 3,
+  brand_id: null,
+  image_url: null,
   is_active: true,
   row_version: 10,
   barcodes: [],

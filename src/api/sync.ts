@@ -15,6 +15,8 @@ export interface ProductDelta {
   tax_category: "ITBIS18" | "ITBIS16" | "ITBIS0" | "EXENTO";
   is_weighable: boolean;
   department_id: number;
+  brand_id: number | null; // D23: atributo, no afecta precio ni fiscalidad
+  image_url: string | null; // D24: hoy siempre null → la caja usa avatar
   is_active: boolean;
   row_version: number;
   barcodes: { barcode: string }[];
@@ -24,6 +26,13 @@ export interface DepartmentDelta {
   id: number;
   name: string;
   tax_category: "ITBIS18" | "ITBIS16" | "ITBIS0" | "EXENTO";
+  is_active: boolean;
+  row_version: number;
+}
+
+export interface BrandDelta {
+  id: number;
+  name: string;
   is_active: boolean;
   row_version: number;
 }
@@ -61,6 +70,7 @@ export interface CatalogPage {
   catalog_version: number;
   products: ProductDelta[];
   departments: DepartmentDelta[];
+  brands?: BrandDelta[]; // opcional: tolerar servidor viejo sin marcas
   customers: CustomerDelta[];
   payment_methods: PaymentMethodDelta[];
   users: UserDelta[];
