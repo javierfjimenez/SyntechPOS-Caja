@@ -57,8 +57,7 @@ type Modal =
   | "impresora"
   | "movimiento"
   | "calculadora"
-  | "recientes"
-  | "productos";
+  | "recientes";
 
 async function pantallaCompleta() {
   try {
@@ -235,9 +234,6 @@ async function changeCashier() {
 function onFnKeys(e: KeyboardEvent) {
   if (ui.modalOpen) return;
   switch (e.key) {
-    case "F3":
-      modal.value = "productos";
-      break;
     case "F4":
       modal.value = "cliente";
       break;
@@ -270,7 +266,6 @@ function onFnKeys(e: KeyboardEvent) {
   <div class="flex h-screen flex-col bg-bg">
     <BarraEstado />
     <BarraAcciones
-      @productos="modal = 'productos'"
       @calculadora="modal = 'calculadora'"
       @pantalla-completa="pantallaCompleta"
       @recientes="modal = 'recientes'"
@@ -279,38 +274,43 @@ function onFnKeys(e: KeyboardEvent) {
     />
 
     <main class="grid min-h-0 flex-1 grid-cols-[3fr_2fr]">
-      <section class="flex min-h-0 flex-col gap-2 p-3">
-        <InputEscaneo
-          @agregar="addProduct"
-          @codigo="onCode"
-          @escaneo-balanza="onScale"
+      <!-- Izquierda: escaneo + líneas + totales + COBRAR -->
+      <section class="flex min-h-0 flex-col">
+        <div class="flex min-h-0 flex-1 flex-col gap-2 p-3">
+          <InputEscaneo
+            @agregar="addProduct"
+            @codigo="onCode"
+            @escaneo-balanza="onScale"
+            @cobrar="cobrar"
+            @quitar-linea="removeLine"
+          />
+          <TablaLineasVenta
+            class="min-h-0 flex-1"
+            :lines="sale.sale.lines"
+            :selected-index="sale.selectedIndex"
+            @seleccionar="sale.selectedIndex = $event"
+            @incrementar="sale.incrementLine($event)"
+            @decrementar="sale.decrementLine($event)"
+          />
+        </div>
+
+        <PanelTotal
+          :totals="sale.totals"
+          :customer-name="sale.sale.customer?.name ?? null"
+          :suspended-count="sale.suspendedCount"
+          :disabled="sale.isEmpty"
           @cobrar="cobrar"
-          @quitar-linea="removeLine"
-        />
-        <TablaLineasVenta
-          class="min-h-0 flex-1"
-          :lines="sale.sale.lines"
-          :selected-index="sale.selectedIndex"
-          @seleccionar="sale.selectedIndex = $event"
-          @incrementar="sale.incrementLine($event)"
-          @decrementar="sale.decrementLine($event)"
+          @cambiar-cliente="modal = 'cliente'"
         />
       </section>
 
-      <PanelTotal
-        :totals="sale.totals"
-        :customer-name="sale.sale.customer?.name ?? null"
-        :suspended-count="sale.suspendedCount"
-        :disabled="sale.isEmpty"
-        @cobrar="cobrar"
-        @cambiar-cliente="modal = 'cliente'"
-      />
+      <!-- Derecha: grid de productos SIEMPRE visible -->
+      <GridProductos />
     </main>
 
     <PieAtajos
       :atajos="[
         { tecla: 'F2', label: 'Buscar' },
-        { tecla: 'F3', label: 'Productos' },
         { tecla: 'F4', label: 'Cliente' },
         { tecla: 'F6', label: 'Cant/Desc línea' },
         { tecla: 'F8', label: 'Suspender' },
@@ -323,8 +323,6 @@ function onFnKeys(e: KeyboardEvent) {
     <ToastCaja />
 
     <!-- Modales (uno a la vez; ModalBase devuelve el foco al cerrar) -->
-    <GridProductos v-if="modal === 'productos'" @cerrar="modal = null" />
-
     <Calculadora v-if="modal === 'calculadora'" @cerrar="modal = null" />
 
     <TransaccionesRecientes v-if="modal === 'recientes'" @cerrar="modal = null" />

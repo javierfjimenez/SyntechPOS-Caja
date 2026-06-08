@@ -22,10 +22,10 @@ const sub = computed(() => subtotal(props.totals));
 </script>
 
 <template>
-  <aside class="flex h-full flex-col gap-3 border-l border-border bg-surface p-4">
-    <!-- Cliente + desglose + TOTAL agrupados al fondo (mt-auto empuja el bloque
-         entero hacia abajo, justo sobre COBRAR — sin hueco muerto) -->
-    <div class="mt-auto flex flex-col gap-3">
+  <aside class="flex flex-col gap-3 border-t border-border bg-surface p-4">
+    <!-- Cliente + desglose + TOTAL: bloque compacto al pie de la columna
+         izquierda, justo sobre COBRAR (el grid vive a la derecha) -->
+    <div class="flex flex-col gap-3">
       <div class="flex items-center justify-between text-[15px]">
         <span class="text-text-dim">Cliente:</span>
         <button
