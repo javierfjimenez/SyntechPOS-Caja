@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
 import { formatMoney } from "@/lib/format";
 import { searchProducts, type ProductRow } from "@/services/product-lookup";
+import { editableFocused, registerScanFocus } from "@/lib/scan-focus";
 import { classifyScanInput, isSearchable } from "@/services/scan-input";
 import { useSaleStore } from "@/stores/sale";
 import { useUiStore } from "@/stores/ui";
@@ -115,15 +116,19 @@ function onKeydown(e: KeyboardEvent) {
 
 // ── Dueño del foco ────────────────────────────────────────────────────────────
 function refocus() {
-  if (!ui.modalOpen) {
-    setTimeout(() => input.value?.focus(), 30); // <50ms (ui-caja §1)
-  }
+  setTimeout(() => {
+    // No robar el foco si hay un modal abierto o si la cajera está en OTRO
+    // campo de texto (p. ej. la búsqueda del grid)
+    if (ui.modalOpen || editableFocused(input.value)) return;
+    input.value?.focus(); // <50ms (ui-caja §1)
+  }, 30);
 }
 
 /** Teclas imprimibles fuera del input (sin modal) → caen en el input */
 function onWindowKeydown(e: KeyboardEvent) {
   if (ui.modalOpen || e.ctrlKey || e.metaKey || e.altKey) return;
   if (document.activeElement === input.value) return;
+  if (editableFocused(input.value)) return; // la cajera escribe en otro campo (búsqueda del grid)
   if (e.key.length === 1) {
     input.value?.focus();
     text.value += e.key;
@@ -142,8 +147,13 @@ function selectResult(index: number) {
 onMounted(() => {
   input.value?.focus();
   window.addEventListener("keydown", onWindowKeydown);
+  // tras un tick: gana a ModalBase al restaurar foco (el grid puede pedir volver)
+  registerScanFocus(() => setTimeout(() => input.value?.focus(), 0));
 });
-onUnmounted(() => window.removeEventListener("keydown", onWindowKeydown));
+onUnmounted(() => {
+  window.removeEventListener("keydown", onWindowKeydown);
+  registerScanFocus(null);
+});
 
 defineExpose({ focus: () => input.value?.focus() });
 </script>

@@ -126,11 +126,11 @@ export async function listBrands(): Promise<BrandRow[]> {
 }
 
 /**
- * Productos para el grid (D24): filtrables por departamento o marca. Sin
- * filtro = todos los activos. Orden por nombre. `limit` acota la primera carga.
+ * Productos para el grid (D24): filtrables por departamento, marca o texto
+ * (nombre/SKU). Sin filtro = todos los activos. Orden por nombre.
  */
 export async function listProductsForGrid(
-  filter: { departmentId?: number; brandId?: number } = {},
+  filter: { departmentId?: number; brandId?: number; term?: string } = {},
   limit = 500,
 ): Promise<ProductRow[]> {
   const db = await getDb();
@@ -143,6 +143,12 @@ export async function listProductsForGrid(
   if (filter.brandId !== undefined) {
     params.push(filter.brandId);
     where.push(`p.brand_id = $${params.length}`);
+  }
+  const term = filter.term?.trim();
+  if (term) {
+    params.push(`%${term}%`);
+    const i = params.length;
+    where.push(`(p.name LIKE $${i} OR p.sku LIKE $${i})`);
   }
   params.push(limit);
   return db.select<ProductRow[]>(

@@ -7,6 +7,7 @@ import TecladoNumerico from "@/components/ui/TecladoNumerico.vue";
 import { avatarFor } from "@/lib/avatar";
 import { toMilli } from "@/lib/decimal";
 import { formatMoney } from "@/lib/format";
+import { focusScan } from "@/lib/scan-focus";
 import {
   expectedScaleTotal,
   listBrands,
@@ -36,6 +37,7 @@ const products = ref<ProductRow[]>([]);
 const filtro = ref<{ kind: "todos" } | { kind: "dep"; id: number } | { kind: "marca"; id: number }>({
   kind: "todos",
 });
+const term = ref("");
 const cargando = ref(false);
 
 // Pesaje: tile pesable clickeado → pedir peso antes de agregar (modal)
@@ -51,16 +53,23 @@ onUnmounted(() => window.removeEventListener("keydown", onPesoKeydown));
 
 watch(filtro, cargar, { deep: true });
 
+// la búsqueda escribe rápido: debounce para no consultar por cada tecla
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(term, () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(cargar, 150);
+});
+
 async function cargar() {
   cargando.value = true;
   try {
-    const f =
+    const base =
       filtro.value.kind === "dep"
         ? { departmentId: filtro.value.id }
         : filtro.value.kind === "marca"
           ? { brandId: filtro.value.id }
           : {};
-    products.value = await listProductsForGrid(f);
+    products.value = await listProductsForGrid({ ...base, term: term.value });
   } finally {
     cargando.value = false;
   }
@@ -81,6 +90,7 @@ async function clickTile(p: ProductRow) {
     return;
   }
   await sale.addLine(productToLine(p)); // +1 (merge con la línea existente)
+  focusScan(); // elegido el producto, el escáner recupera el foco
 }
 
 async function masTile(p: ProductRow) {
@@ -112,6 +122,13 @@ async function confirmarPeso() {
   if (pesando.value === null || toMilli(pesoStr.value) === 0n) return;
   await sale.addLine({ ...productToLine(pesando.value, pesoStr.value), is_weighable: true });
   cerrarPeso();
+  focusScan(); // tras pesar, el escáner recupera el foco (gana a ModalBase)
+}
+
+/** ESC en la búsqueda: limpia y devuelve el foco al escáner */
+function limpiarBusqueda() {
+  term.value = "";
+  focusScan();
 }
 
 function onPesoKeydown(e: KeyboardEvent) {
@@ -126,7 +143,16 @@ function onPesoKeydown(e: KeyboardEvent) {
 
 <template>
   <aside class="flex h-full min-h-0 flex-col gap-2 border-l border-border bg-surface p-3">
-    <h2 class="text-sm font-semibold text-text-dim select-none">Productos</h2>
+    <!-- Búsqueda del grid (un campo aparte del escáner; respeta el foco) -->
+    <input
+      v-model="term"
+      type="text"
+      autocomplete="off"
+      spellcheck="false"
+      placeholder="🔍 Buscar producto…"
+      class="h-10 w-full rounded-lg border border-border bg-bg px-3 text-text outline-none focus:border-primary"
+      @keydown.esc.prevent="limpiarBusqueda"
+    />
 
     <!-- Filtros: Todos / departamentos / marcas -->
     <div class="flex max-h-20 flex-wrap gap-1 overflow-y-auto">
@@ -135,6 +161,7 @@ function onPesoKeydown(e: KeyboardEvent) {
         tabindex="-1"
         class="rounded-lg px-2.5 py-1 text-sm font-medium"
         :class="filtro.kind === 'todos' ? 'bg-primary text-white' : 'bg-bg text-text hover:bg-border'"
+        @mousedown.prevent
         @click="filtro = { kind: 'todos' }"
       >
         Todos
@@ -146,6 +173,7 @@ function onPesoKeydown(e: KeyboardEvent) {
         tabindex="-1"
         class="rounded-lg px-2.5 py-1 text-sm font-medium"
         :class="filtro.kind === 'dep' && filtro.id === d.id ? 'bg-primary text-white' : 'bg-bg text-text hover:bg-border'"
+        @mousedown.prevent
         @click="filtro = { kind: 'dep', id: d.id }"
       >
         {{ d.name }}
@@ -157,6 +185,7 @@ function onPesoKeydown(e: KeyboardEvent) {
         tabindex="-1"
         class="rounded-lg px-2.5 py-1 text-sm font-medium"
         :class="filtro.kind === 'marca' && filtro.id === b.id ? 'bg-primary text-white' : 'bg-bg text-text hover:bg-border'"
+        @mousedown.prevent
         @click="filtro = { kind: 'marca', id: b.id }"
       >
         {{ b.name }}
@@ -171,6 +200,7 @@ function onPesoKeydown(e: KeyboardEvent) {
         type="button"
         tabindex="-1"
         class="relative flex flex-col items-center gap-1 rounded-lg border border-border bg-surface p-2 text-center hover:border-primary"
+        @mousedown.prevent
         @click="clickTile(p)"
       >
         <span v-if="badge(p.id)" class="absolute top-1 right-1 rounded-full bg-primary px-1.5 text-xs font-bold text-white">
@@ -191,7 +221,7 @@ function onPesoKeydown(e: KeyboardEvent) {
         <span class="monto text-sm font-semibold text-primary">{{ formatMoney(p.price) }}</span>
 
         <!-- +/- por tile (no pesables) -->
-        <span v-if="p.is_weighable === 0" class="mt-0.5 flex items-center gap-1.5" @click.stop>
+        <span v-if="p.is_weighable === 0" class="mt-0.5 flex items-center gap-1.5" @click.stop @mousedown.prevent>
           <span
             role="button"
             tabindex="-1"
