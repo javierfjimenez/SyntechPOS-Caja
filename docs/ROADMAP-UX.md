@@ -10,12 +10,13 @@
 
 ## ✅ Construido (tanda UX 2026-06-08)
 
-Funcionalidades de **pura UI**, sin tocar el servidor:
+Funcionalidades de **pura UI**:
 
 - **Calculadora** — herramienta flotante (+ − × ÷ %), decimal exacto sin floats (`lib/calculator.ts`)
 - **Pantalla completa** — toggle manual (F11 / barra), sin romper el kiosk (`toggle_fullscreen` en Rust)
 - **Transacciones recientes** — ver y reimprimir las ventas/NC del turno (`services/transactions.ts`)
-- **Barra de accesos directos** — saca a la vista lo que estaba escondido en F10 (calculadora, pantalla completa, recientes, gasto, cierre)
+- **Barra de accesos directos** — saca a la vista lo que estaba escondido en F10 (productos, calculadora, pantalla completa, recientes, gasto, cierre)
+- **Grid de productos (F3)** — `GridProductos.vue`: tiles con **avatar generado** (`lib/avatar.ts`, sin imágenes aún), filtro por departamento/marca, **click = +1**, `+/-` por tile con badge de cantidad, los pesables piden peso. Réplica ampliada (migración 0006: `brand_id`/`image_url` en products + tabla `brands`; fuerza un re-pull completo una vez para backfill). `+/-` también en las líneas del carrito.
 
 ## 🔜 Antes del piloto (baratas, no tocan el contrato)
 

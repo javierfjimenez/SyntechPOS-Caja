@@ -75,7 +75,7 @@ describe.runIf(RUN)("flujo completo contra el servidor real", () => {
     });
     expect(result.rows).toBeGreaterThan(0);
 
-    const products = db.all("SELECT name, price, cost, tax_category, is_weighable FROM products WHERE is_active = 1");
+    const products = db.all("SELECT name, price, cost, tax_category, is_weighable, brand_id, image_url FROM products WHERE is_active = 1");
     const barcodes = db.all("SELECT code, product_id FROM barcodes");
     const users = db.all("SELECT id, name, role, pin_hash, is_active FROM users") as UserRow[];
 
@@ -83,6 +83,13 @@ describe.runIf(RUN)("flujo completo contra el servidor real", () => {
     expect(barcodes.length).toBeGreaterThan(0);
     // precios como string decimal en la réplica (jamás floats en lo fiscal)
     expect((products[0] as { price: unknown }).price).toMatch(/^\d+\.\d{2}$/);
+
+    // Grid (D24/D23): image_url null hoy (→ avatar) + las columnas existen
+    expect(products.every((p) => (p as { image_url: unknown }).image_url === null)).toBe(true);
+    expect(products[0]).toHaveProperty("brand_id");
+    // brands bajan en el delta y se replican (D23)
+    const brands = db.all("SELECT id, name FROM brands");
+    expect(Array.isArray(brands)).toBe(true);
 
     // 4. Login PIN offline contra los pin_hash REALES que bajó el delta
     const maria = await findUserByPin("1234", users);
