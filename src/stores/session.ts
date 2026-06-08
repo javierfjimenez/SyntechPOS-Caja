@@ -108,7 +108,7 @@ export const useSessionStore = defineStore("session", {
       if (this.ulid === null) throw new Error("No hay sesión abierta.");
       const db = await getDb();
       const rows = await db.select<{ payload: string }[]>(
-        "SELECT payload FROM outbox WHERE type IN ('sale.completed', 'cash_movement.created') ORDER BY ulid",
+        "SELECT payload FROM outbox WHERE type IN ('sale.completed', 'cash_movement.created', 'sale.voided') ORDER BY ulid",
       );
       const envelopes = rows.map((r) => JSON.parse(r.payload) as Envelope);
       return sessionActivity(envelopes, this.ulid);

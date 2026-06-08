@@ -84,6 +84,19 @@ export function buildSessionOpenedPayload(input: {
   };
 }
 
+/** sale.voided (eventos-sync §4.2): anulación dentro de la sesión abierta */
+export function buildSaleVoidedPayload(input: {
+  saleUlid: string;
+  reason: string;
+  supervisorUserId: number;
+}): Record<string, unknown> {
+  return {
+    sale_ulid: input.saleUlid,
+    reason: input.reason,
+    supervisor_user_id: input.supervisorUserId,
+  };
+}
+
 export async function signSaleEvent(
   secret: string,
   eventUlid: string,

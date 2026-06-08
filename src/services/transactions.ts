@@ -12,12 +12,21 @@ export interface TransactionSummary {
   kind: "sale" | "credit_note";
   total: string;
   occurred_at: string;
+  voided: boolean;
 }
 
 export function recentTransactions(
   envelopes: Envelope[],
   sessionUlid: string,
 ): TransactionSummary[] {
+  // ventas anuladas (un sale.voided las referencia)
+  const voided = new Set<string>();
+  for (const envelope of envelopes) {
+    if (envelope.type === "sale.voided") {
+      voided.add((envelope.payload as { sale_ulid: string }).sale_ulid);
+    }
+  }
+
   const result: TransactionSummary[] = [];
   for (const envelope of envelopes) {
     if (envelope.type !== "sale.completed") continue;
@@ -29,6 +38,7 @@ export function recentTransactions(
       kind: p.type === "credit_note" ? "credit_note" : "sale",
       total: (p.totals as { total: string }).total,
       occurred_at: envelope.occurred_at,
+      voided: voided.has(p.sale_ulid as string),
     });
   }
   // saleEnvelopes() viene en orden ULID (cronológico) → invertir = reciente primero

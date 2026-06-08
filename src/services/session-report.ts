@@ -23,8 +23,20 @@ export interface SessionActivity {
   salesTotal: string;
 }
 
-/** Recorre los sobres de la sesión (sale.completed + cash_movement.created) */
+/**
+ * Recorre los sobres de la sesión (sale.completed + cash_movement.created +
+ * sale.voided). Las ventas ANULADAS (con un sale.voided que las referencia)
+ * NO cuentan en el arqueo — su efectivo no está en la gaveta.
+ */
 export function sessionActivity(envelopes: Envelope[], sessionUlid: string): SessionActivity {
+  // primero: qué ventas quedaron anuladas (el void puede llegar en cualquier orden)
+  const voided = new Set<string>();
+  for (const envelope of envelopes) {
+    if (envelope.type === "sale.voided") {
+      voided.add((envelope.payload as { sale_ulid: string }).sale_ulid);
+    }
+  }
+
   let cash = 0n;
   let card = 0n;
   let transfer = 0n;
@@ -38,7 +50,11 @@ export function sessionActivity(envelopes: Envelope[], sessionUlid: string): Ses
   for (const envelope of envelopes) {
     const p = envelope.payload as Record<string, unknown>;
 
-    if (envelope.type === "sale.completed" && p.cash_session_ulid === sessionUlid) {
+    if (
+      envelope.type === "sale.completed" &&
+      p.cash_session_ulid === sessionUlid &&
+      !voided.has(p.sale_ulid as string)
+    ) {
       salesCount += 1;
       salesTotal += toCents((p.totals as { total: string }).total);
       for (const payment of p.payments as { method_code: string; amount: string }[]) {

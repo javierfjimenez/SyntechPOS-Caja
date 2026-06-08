@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import evento from "../../docs/fixtures/evento-sale-completed.json";
 import { cashPayment } from "@/services/payment";
-import { buildSaleCompletedPayload, buildSessionOpenedPayload } from "@/services/sale-event";
+import {
+  buildSaleCompletedPayload,
+  buildSaleVoidedPayload,
+  buildSessionOpenedPayload,
+} from "@/services/sale-event";
 import type { CurrentSale } from "@/services/sale";
 
 /**
@@ -87,6 +91,22 @@ describe("buildSaleCompletedPayload contra el fixture del contrato", () => {
       cashierUserId: 7,
     });
     expect(payload.is_credit).toBe(true);
+  });
+});
+
+describe("buildSaleVoidedPayload (anulación §4.2)", () => {
+  it("forma exacta del contrato: sale_ulid + reason + supervisor_user_id", () => {
+    expect(
+      buildSaleVoidedPayload({
+        saleUlid: "01JX5K3KZ0AAAAAAAAAAAAAAAA",
+        reason: "Cobro equivocado",
+        supervisorUserId: 2,
+      }),
+    ).toEqual({
+      sale_ulid: "01JX5K3KZ0AAAAAAAAAAAAAAAA",
+      reason: "Cobro equivocado",
+      supervisor_user_id: 2,
+    });
   });
 });
 

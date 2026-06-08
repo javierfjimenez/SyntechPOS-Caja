@@ -46,6 +46,20 @@ describe("recentTransactions (las ventas/NC del turno actual)", () => {
     expect(list[0]!.ticket_number).toBe(1);
   });
 
+  it("marca como anulada la venta con un sale.voided que la referencia", () => {
+    const voidEnv: Envelope = {
+      ulid: "01Z",
+      type: "sale.voided",
+      schema_version: 1,
+      occurred_at: "2026-06-08T13:00:00-04:00",
+      payload: { sale_ulid: "01JXSALE000000000000000001", reason: "Cobro malo", supervisor_user_id: 2 },
+      signature: "f".repeat(64),
+    };
+    const list = recentTransactions([env("01A", 1, "150.00", "sale"), env("01B", 2, "385.00", "sale"), voidEnv], SESSION);
+    expect(list.find((t) => t.ticket_number === 1)!.voided).toBe(true);
+    expect(list.find((t) => t.ticket_number === 2)!.voided).toBe(false);
+  });
+
   it("trae el total y el sale_ulid para reimprimir", () => {
     const list = recentTransactions([env("01A", 42, "1200.00", "sale")], SESSION);
     expect(list[0]!.total).toBe("1200.00");

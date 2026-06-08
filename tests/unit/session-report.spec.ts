@@ -22,6 +22,28 @@ function saleEnvelope(payments: { method_code: string; amount: string }[], total
   };
 }
 
+function voidEnvelope(saleUlid: string): Envelope {
+  return {
+    ulid: "01JXVOIDAAAAAAAAAAAAAAAAAA",
+    type: "sale.voided",
+    schema_version: 1,
+    occurred_at: "2026-06-08T12:00:00-04:00",
+    payload: { sale_ulid: saleUlid, reason: "Cobro equivocado", supervisor_user_id: 2 },
+    signature: "f".repeat(64),
+  };
+}
+
+function saleEnvelopeWithUlid(saleUlid: string, total: string): Envelope {
+  return {
+    ulid: "01JXEV" + saleUlid.slice(0, 20),
+    type: "sale.completed",
+    schema_version: 1,
+    occurred_at: "2026-06-08T10:00:00-04:00",
+    payload: { sale_ulid: saleUlid, cash_session_ulid: SESSION, type: "sale", payments: [{ method_code: "cash", amount: total }], totals: { total } },
+    signature: "f".repeat(64),
+  };
+}
+
 function movementEnvelope(type: string, amount: string, session = SESSION): Envelope {
   return {
     ulid: "01JXMOVAAAAAAAAAAAAAAAAAAA",
@@ -64,6 +86,20 @@ describe("sessionActivity (la verdad local sale del outbox)", () => {
     );
     expect(activity.salesCount).toBe(0);
     expect(activity.sales.cash).toBe("0.00");
+  });
+
+  it("una venta ANULADA no cuenta en el arqueo (su efectivo no está en gaveta)", () => {
+    const activity = sessionActivity(
+      [
+        saleEnvelopeWithUlid("01JXSALEAAAAAAAAAAAAAAAAAA", "150.00"),
+        saleEnvelopeWithUlid("01JXSALEBBBBBBBBBBBBBBBBBB", "200.00"),
+        voidEnvelope("01JXSALEAAAAAAAAAAAAAAAAAA"), // anula la primera
+      ],
+      SESSION,
+    );
+    expect(activity.salesCount).toBe(1);
+    expect(activity.sales.cash).toBe("200.00");
+    expect(activity.salesTotal).toBe("200.00");
   });
 
   it("acumula retiros, gastos y depósitos", () => {

@@ -62,13 +62,31 @@ export async function markRetry(ulids: string[], nextRetryAt: Date): Promise<voi
   );
 }
 
-/** Todos los sobres de venta/NC del terminal, en orden (búsquedas locales) */
+/** Sobres de venta/NC del terminal, en orden (búsquedas locales) */
 export async function saleEnvelopes(): Promise<Envelope[]> {
   const db = await getDb();
   const rows = await db.select<{ payload: string }[]>(
     "SELECT payload FROM outbox WHERE type = 'sale.completed' ORDER BY ulid",
   );
   return rows.map((r) => JSON.parse(r.payload) as Envelope);
+}
+
+/** Ventas + anulaciones del terminal (para Transacciones recientes, marca anuladas) */
+export async function transactionEnvelopes(): Promise<Envelope[]> {
+  const db = await getDb();
+  const rows = await db.select<{ payload: string }[]>(
+    "SELECT payload FROM outbox WHERE type IN ('sale.completed', 'sale.voided') ORDER BY ulid",
+  );
+  return rows.map((r) => JSON.parse(r.payload) as Envelope);
+}
+
+/** sale_ulid de las ventas anuladas (hay un sale.voided que las referencia) */
+export async function voidedSaleUlids(): Promise<Set<string>> {
+  const db = await getDb();
+  const rows = await db.select<{ payload: string }[]>(
+    "SELECT payload FROM outbox WHERE type = 'sale.voided'",
+  );
+  return new Set(rows.map((r) => (JSON.parse(r.payload) as Envelope).payload.sale_ulid as string));
 }
 
 /** Número de ticket local por terminal (uq terminal+ticket_number server-side) */
