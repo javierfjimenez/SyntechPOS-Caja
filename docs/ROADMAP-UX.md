@@ -23,12 +23,16 @@ Funcionalidades de **pura UI**, sin tocar el servidor:
 - **Atajo dedicado para la calculadora** y pulido de accesos directos según feedback de cajera.
 - *(Reimpresión por número de ticket: ya cubierta por Transacciones recientes.)*
 
+## 🟢 Ahora — habilitado por el servidor (SyntechPOS@c8d9170, D24)
+
+- **Grid de productos con AVATAR** — DESBLOQUEADO. El servidor ya manda `image_url` en el delta
+  (hoy siempre `null`) y los productos ya traen `brand_id`. La caja construye el grid YA: tiles con
+  nombre + precio + **avatar generado del nombre** (inicial + color determinista) como imagen
+  fallback. Navegable por `departments`/`brands` (ambos replicados). Cuando lleguen las fotos reales
+  (Fase 2) el grid NO cambia: solo se sustituye el avatar por la imagen cacheada. Spec en `docs/ESTADO.md`.
+
 ## 🟡 v1.1 (toca el servidor levemente)
 
-- **Grid de productos por categoría (versión texto)** — rejilla navegable tocando los `departments`
-  que ya se replican; tiles con nombre + precio. Resuelve el 80% del valor del grid para productos
-  **sin código de barras** (frutas, verduras, granel) sin el costo de las imágenes. Hoy esos se
-  venden por "departamento con precio manual".
 - **Display al cliente** — segunda pantalla mostrando el total al comprador. Requiere ventana
   secundaria en Tauri; no toca el contrato pero sí el shell de la app.
 - **Reportes de producto/categoría en el X/Z** — hoy el arqueo da totales por método, no "qué se
@@ -36,9 +40,12 @@ Funcionalidades de **pura UI**, sin tocar el servidor:
 
 ## 🔴 v2 (toca el servidor / costoso)
 
-- **Imágenes de producto** — el delta de catálogo NO trae imagen. Implica: servidor sirve la
-  imagen → delta manda URL → la caja la **cachea en disco** (offline en N cajas). Lo más caro.
-- **Marcas (Brands)** — no existe tabla ni réplica; hoy solo `departments` (= categorías).
+- **Imágenes de producto (Fase 2 — el "100%")** — la ESTRUCTURA ya está (D24): el campo y
+  `image_url` viajan en el delta. Falta el pipeline caro: subida en backoffice → servidor sirve la
+  URL → la caja **cachea la imagen en disco** (offline en N cajas) y la muestra, con el avatar de
+  respaldo mientras no esté cacheada. Se construye cuando el piloto confirme que las fotos valen.
+- ~~**Marcas (Brands)**~~ ✅ HECHO en SyntechPOS@80e5154 (D23): tabla + `brand_id` + delta; falta
+  implementar tabla local + filtro en esta caja.
 - **Stock en vivo en el tile** — no replicamos stock (es referencial por diseño); habría que bajarlo.
 - **Promociones** — 2x1, 3x2, descuento por volumen, combos, precio por horario. Motor de reglas
   en el servidor + evaluación en la caja.
