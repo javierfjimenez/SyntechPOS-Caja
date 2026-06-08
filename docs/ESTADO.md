@@ -12,6 +12,7 @@
   - [ ] Deuda de CA fase: cronometrar 20 items < 60 seg con cajera real + jornada con WiFi apagado (fase 9, piloto)
   - [ ] Pendiente menor: `nvm alias default 22`
 - **Siguiente**: prueba manual integral de Javier (guía en la bitácora) → ajustes → empaquetado
+- **Capa UX iniciada** (fuera de las 12 tareas de Fase 4): ver `docs/ROADMAP-UX.md` — funcionalidades de paridad con POS estándar, priorizadas. Construidas las 4 baratas (calculadora, pantalla completa, transacciones recientes, barra de accesos directos)
 
 ## Checklist Fase 4
 
@@ -50,6 +51,16 @@
 ---
 
 ## Bitácora
+
+### 2026-06-08 — Capa UX: paridad con POS estándar (4 funcionalidades + roadmap)
+
+- Contexto: comparando con POS de la industria faltan herramientas de comodidad (calculadora, pantalla completa, grid de productos, etc.). NADA se copia de UltimatePOS (prohibido); todo desde cero con DISENO.md
+- **`docs/ROADMAP-UX.md`**: inventario priorizado (construido / antes del piloto / v1.1 toca-servidor-leve / v2 costoso). Lo más relevante diferido: grid de productos texto para granel (v1.1), anulación `sale.voided` con UI (antes del piloto — el evento ya existe en el contrato)
+- **Calculadora** (`lib/calculator.ts` + `Calculadora.vue`): reducer puro BigInt escala 6, half-up — `0.1+0.2=0.3` exacto; + − × ÷ %, división por cero → Error recuperable. Teclado físico + botones. 14 tests
+- **Pantalla completa**: comando Rust `toggle_fullscreen` (no toca decoraciones → kiosk intacto); F11 + botón. cargo check limpio
+- **Transacciones recientes** (`services/transactions.ts` + modal): releídas del outbox por `cash_session_ulid` del turno, reciente-primero, venta/NC; reimprime con `reprintStamped` (timbrado si hay e-CF, nunca abre gaveta). 5 tests
+- **Barra de accesos directos** (`BarraAcciones.vue`): bajo BarraEstado, icono SVG inline + etiqueta, `tabindex=-1` (no roban el foco del escaneo) → calculadora, pantalla completa, recientes, gasto, cierre
+- **176 tests** (157 + 14 + 5) · typecheck + cargo limpios · sin tocar el contrato del servidor
 
 ### 2026-06-07 — 4.8 + 4.9 + 4.10 + 4.11 + 4.12: la fase queda construida completa
 

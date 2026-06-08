@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { invoke } from "@tauri-apps/api/core";
 import { onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
+import BarraAcciones from "@/components/ui/BarraAcciones.vue";
 import BarraEstado from "@/components/ui/BarraEstado.vue";
 import BotonAccion from "@/components/ui/BotonAccion.vue";
 import BuscadorCliente from "@/components/ui/BuscadorCliente.vue";
+import Calculadora from "@/components/ui/Calculadora.vue";
 import ConfiguracionImpresora from "@/components/ui/ConfiguracionImpresora.vue";
 import EditarLinea from "@/components/ui/EditarLinea.vue";
 import InputEscaneo from "@/components/ui/InputEscaneo.vue";
@@ -15,6 +18,7 @@ import PieAtajos from "@/components/ui/PieAtajos.vue";
 import ProductoDesconocido from "@/components/ui/ProductoDesconocido.vue";
 import TablaLineasVenta from "@/components/ui/TablaLineasVenta.vue";
 import ToastCaja from "@/components/ui/ToastCaja.vue";
+import TransaccionesRecientes from "@/components/ui/TransaccionesRecientes.vue";
 import VentasSuspendidas from "@/components/ui/VentasSuspendidas.vue";
 import { beep } from "@/lib/beep";
 import { formatMoney } from "@/lib/format";
@@ -50,7 +54,17 @@ type Modal =
   | "menu"
   | "confirmarCancelar"
   | "impresora"
-  | "movimiento";
+  | "movimiento"
+  | "calculadora"
+  | "recientes";
+
+async function pantallaCompleta() {
+  try {
+    await invoke("toggle_fullscreen");
+  } catch {
+    // sin ventana (entorno no-Tauri): sin efecto
+  }
+}
 const modal = ref<Modal>(null);
 const unknownCode = ref("");
 
@@ -234,6 +248,9 @@ function onFnKeys(e: KeyboardEvent) {
     case "F10":
       modal.value = "menu";
       break;
+    case "F11":
+      void pantallaCompleta();
+      break;
     case "F12":
       cobrar();
       break;
@@ -247,6 +264,13 @@ function onFnKeys(e: KeyboardEvent) {
 <template>
   <div class="flex h-screen flex-col bg-bg">
     <BarraEstado />
+    <BarraAcciones
+      @calculadora="modal = 'calculadora'"
+      @pantalla-completa="pantallaCompleta"
+      @recientes="modal = 'recientes'"
+      @gasto="modal = 'movimiento'"
+      @cierre="irACierre"
+    />
 
     <main class="grid min-h-0 flex-1 grid-cols-[3fr_2fr]">
       <section class="flex min-h-0 flex-col gap-2 p-3">
@@ -283,12 +307,17 @@ function onFnKeys(e: KeyboardEvent) {
         { tecla: 'F8', label: 'Suspender' },
         { tecla: 'F12', label: 'COBRAR' },
         { tecla: 'F10', label: 'Menú' },
+        { tecla: 'F11', label: 'Pantalla' },
       ]"
     />
 
     <ToastCaja />
 
     <!-- Modales (uno a la vez; ModalBase devuelve el foco al cerrar) -->
+    <Calculadora v-if="modal === 'calculadora'" @cerrar="modal = null" />
+
+    <TransaccionesRecientes v-if="modal === 'recientes'" @cerrar="modal = null" />
+
     <ProductoDesconocido
       v-if="modal === 'desconocido'"
       :code="unknownCode"
