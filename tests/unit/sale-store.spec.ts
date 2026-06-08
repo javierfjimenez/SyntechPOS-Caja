@@ -119,6 +119,34 @@ describe("líneas (wireframe §5)", () => {
     expect(store.sale.lines).toHaveLength(2);
   });
 
+  it("incrementLine/decrementLine ajustan la cantidad; − en 1 quita la línea", async () => {
+    const store = useSaleStore();
+    await store.addLine(linea()); // 1.000
+    await store.incrementLine(0);
+    expect(store.sale.lines[0]!.quantity).toBe("2.000");
+    await store.decrementLine(0);
+    expect(store.sale.lines[0]!.quantity).toBe("1.000");
+    await store.decrementLine(0); // 1 → 0 → quita
+    expect(store.sale.lines).toHaveLength(0);
+  });
+
+  it("+/- no aplican a pesables (su cantidad es el peso)", async () => {
+    const store = useSaleStore();
+    await store.addLine(linea({ product_id: 9, quantity: "0.345", is_weighable: true }));
+    await store.incrementLine(0);
+    expect(store.sale.lines[0]!.quantity).toBe("0.345");
+  });
+
+  it("quantityForProduct refleja el carrito; decrementByProduct baja por product_id", async () => {
+    const store = useSaleStore();
+    await store.addLine(linea()); // product_id 88
+    await store.addLine(linea());
+    expect(store.quantityForProduct(88)).toBe("2.000");
+    expect(store.quantityForProduct(99)).toBe("0.000");
+    await store.decrementByProduct(88);
+    expect(store.quantityForProduct(88)).toBe("1.000");
+  });
+
   it("multiplicador 3*: la próxima línea entra con cantidad 3 y se consume", async () => {
     const store = useSaleStore();
     store.setMultiplier("3");

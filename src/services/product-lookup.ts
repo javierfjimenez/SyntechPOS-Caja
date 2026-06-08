@@ -16,10 +16,12 @@ export interface ProductRow {
   tax_category: TaxCategory;
   is_weighable: number;
   department_id: number;
+  brand_id: number | null;
+  image_url: string | null;
 }
 
 const PRODUCT_FIELDS =
-  "p.id, p.name, p.sku, p.price, p.cost, p.tax_category, p.is_weighable, p.department_id";
+  "p.id, p.name, p.sku, p.price, p.cost, p.tax_category, p.is_weighable, p.department_id, p.brand_id, p.image_url";
 
 /** Código escaneado → producto (barcode exacto; fallback: SKU exacto) */
 export async function findByCode(code: string): Promise<ProductRow | null> {
@@ -110,6 +112,42 @@ export async function listDepartments(): Promise<DepartmentRow[]> {
   const db = await getDb();
   return db.select<DepartmentRow[]>(
     "SELECT id, name, tax_category FROM departments WHERE is_active = 1 ORDER BY name",
+  );
+}
+
+export interface BrandRow {
+  id: number;
+  name: string;
+}
+
+export async function listBrands(): Promise<BrandRow[]> {
+  const db = await getDb();
+  return db.select<BrandRow[]>("SELECT id, name FROM brands WHERE is_active = 1 ORDER BY name");
+}
+
+/**
+ * Productos para el grid (D24): filtrables por departamento o marca. Sin
+ * filtro = todos los activos. Orden por nombre. `limit` acota la primera carga.
+ */
+export async function listProductsForGrid(
+  filter: { departmentId?: number; brandId?: number } = {},
+  limit = 500,
+): Promise<ProductRow[]> {
+  const db = await getDb();
+  const where: string[] = ["p.is_active = 1"];
+  const params: unknown[] = [];
+  if (filter.departmentId !== undefined) {
+    params.push(filter.departmentId);
+    where.push(`p.department_id = $${params.length}`);
+  }
+  if (filter.brandId !== undefined) {
+    params.push(filter.brandId);
+    where.push(`p.brand_id = $${params.length}`);
+  }
+  params.push(limit);
+  return db.select<ProductRow[]>(
+    `SELECT ${PRODUCT_FIELDS} FROM products p WHERE ${where.join(" AND ")} ORDER BY p.name LIMIT $${params.length}`,
+    params,
   );
 }
 

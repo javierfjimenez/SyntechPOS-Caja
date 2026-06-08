@@ -151,6 +151,42 @@ export const useSaleStore = defineStore("sale", {
       await this.persist();
     },
 
+    /** +1 unidad a una línea (botón + del carrito). No aplica a pesables. */
+    async incrementLine(index: number) {
+      const line = this.sale.lines[index];
+      if (line === undefined || line.is_weighable) return;
+      line.quantity = fromMilli(toMilli(line.quantity) + 1000n);
+      this.selectedIndex = index;
+      await this.persist();
+    },
+
+    /** −1 unidad; al llegar a 0 quita la línea (botón − del carrito). */
+    async decrementLine(index: number) {
+      const line = this.sale.lines[index];
+      if (line === undefined || line.is_weighable) return;
+      const next = toMilli(line.quantity) - 1000n;
+      if (next <= 0n) {
+        this.sale.lines.splice(index, 1);
+        this.selectedIndex = Math.min(this.selectedIndex, this.sale.lines.length - 1);
+      } else {
+        line.quantity = fromMilli(next);
+        this.selectedIndex = index;
+      }
+      await this.persist();
+    },
+
+    /** −1 unidad por PRODUCTO (botón − de un tile del grid) */
+    async decrementByProduct(productId: number) {
+      const index = this.sale.lines.findIndex((l) => l.product_id === productId && !l.is_weighable);
+      if (index >= 0) await this.decrementLine(index);
+    },
+
+    /** Cuántas unidades de ese producto hay en el carrito (badge del grid) */
+    quantityForProduct(productId: number): string {
+      const line = this.sale.lines.find((l) => l.product_id === productId && !l.is_weighable);
+      return line?.quantity ?? "0.000";
+    },
+
     async setCustomer(customer: SaleCustomer | null) {
       this.sale.customer = customer;
       await this.persist();
