@@ -6,6 +6,7 @@ import { useRouter } from "vue-router";
 import BarraAcciones from "@/components/ui/BarraAcciones.vue";
 import BarraEstado from "@/components/ui/BarraEstado.vue";
 import BotonAccion from "@/components/ui/BotonAccion.vue";
+import AnularVenta from "@/components/ui/AnularVenta.vue";
 import BuscadorCliente from "@/components/ui/BuscadorCliente.vue";
 import Calculadora from "@/components/ui/Calculadora.vue";
 import ConfiguracionImpresora from "@/components/ui/ConfiguracionImpresora.vue";
@@ -26,6 +27,8 @@ import { formatMoney } from "@/lib/format";
 import { findByCode, scaleToLine, productToLine, type ProductRow } from "@/services/product-lookup";
 import { parseScaleBarcode } from "@/services/scale-barcode";
 import type { SaleCustomer, SaleLine } from "@/services/sale";
+import type { TransactionSummary } from "@/services/transactions";
+import { voidSale } from "@/services/void-sale";
 import type { UserRow } from "@/services/auth";
 import { useCashierStore } from "@/stores/cashier";
 import { useOutboxStore } from "@/stores/outbox";
@@ -57,7 +60,8 @@ type Modal =
   | "impresora"
   | "movimiento"
   | "calculadora"
-  | "recientes";
+  | "recientes"
+  | "anular";
 
 async function pantallaCompleta() {
   try {
@@ -68,12 +72,35 @@ async function pantallaCompleta() {
 }
 const modal = ref<Modal>(null);
 const unknownCode = ref("");
+const ventaAAnular = ref<TransactionSummary | null>(null);
 
 onMounted(() => {
   void sale.restore(); // crash/apagón: la venta vuelve intacta
   window.addEventListener("keydown", onFnKeys);
 });
 onUnmounted(() => window.removeEventListener("keydown", onFnKeys));
+
+// ── Anulación de venta (sale.voided) ──────────────────────────────────────────
+
+function abrirAnular(t: TransactionSummary) {
+  ventaAAnular.value = t;
+  modal.value = "anular"; // se cierra Recientes y se abre AnularVenta (sin anidar)
+}
+
+async function ejecutarAnulacion(reason: string, supervisor: UserRow) {
+  if (ventaAAnular.value === null) return;
+  const ticket = ventaAAnular.value.ticket_number;
+  modal.value = null;
+  try {
+    await voidSale(ventaAAnular.value.sale_ulid, reason, supervisor.id);
+    void outbox.drainNow();
+    ui.toast("exito", `Venta #${ticket} anulada.`);
+  } catch (e) {
+    ui.toast("error", e instanceof Error ? e.message : "No se pudo anular la venta.");
+  } finally {
+    ventaAAnular.value = null;
+  }
+}
 
 // ── Agregar líneas ────────────────────────────────────────────────────────────
 
@@ -325,7 +352,18 @@ function onFnKeys(e: KeyboardEvent) {
     <!-- Modales (uno a la vez; ModalBase devuelve el foco al cerrar) -->
     <Calculadora v-if="modal === 'calculadora'" @cerrar="modal = null" />
 
-    <TransaccionesRecientes v-if="modal === 'recientes'" @cerrar="modal = null" />
+    <TransaccionesRecientes
+      v-if="modal === 'recientes'"
+      @anular="abrirAnular"
+      @cerrar="modal = null"
+    />
+
+    <AnularVenta
+      v-if="modal === 'anular' && ventaAAnular"
+      :sale="ventaAAnular"
+      @anular="ejecutarAnulacion"
+      @cerrar="modal = null; ventaAAnular = null"
+    />
 
     <ProductoDesconocido
       v-if="modal === 'desconocido'"

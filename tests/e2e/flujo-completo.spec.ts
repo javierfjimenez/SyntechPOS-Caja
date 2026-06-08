@@ -183,6 +183,36 @@ describe.runIf(RUN)("flujo completo contra el servidor real", () => {
     const ncResult = await postEvents([ncEnvelope], opts);
     expect(ncResult.results[0]!.status).toBe("processed");
 
+    // 9. Anulación (sale.voided): venta nueva → procesada → anulada → procesada
+    const { buildSaleVoidedPayload } = await import("@/services/sale-event");
+    const ventaAnulableUlid = ulid();
+    const ventaAnulable = await buildEnvelope(link.hmac_secret, {
+      ulid: ulid(),
+      type: "sale.completed",
+      occurred_at: toIsoWithOffset(new Date()),
+      payload: buildSaleCompletedPayload({
+        sale: { lines: salePayload.lines as never, customer: null, supervisor_user_id: null },
+        payments: [cashPayment("150.00", "150.00")],
+        saleUlid: ventaAnulableUlid,
+        ticketNumber: baseTicket + 2,
+        cashSessionUlid: sessionUlid,
+        cashierUserId: cashier.id,
+      }),
+    });
+    expect((await postEvents([ventaAnulable], opts)).results[0]!.status).toBe("processed");
+
+    const voidEnvelope = await buildEnvelope(link.hmac_secret, {
+      ulid: ulid(),
+      type: "sale.voided",
+      occurred_at: toIsoWithOffset(new Date()),
+      payload: buildSaleVoidedPayload({
+        saleUlid: ventaAnulableUlid,
+        reason: "Cobro equivocado (e2e)",
+        supervisorUserId: supervisor.id,
+      }),
+    });
+    expect((await postEvents([voidEnvelope], opts)).results[0]!.status).toBe("processed");
+
     // Para re-vincular la app de escritorio sin repetir el seeder:
     console.log(`E2E_TOKEN=${link.token}`);
     console.log(`E2E_HMAC=${link.hmac_secret}`);

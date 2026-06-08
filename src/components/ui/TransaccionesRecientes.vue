@@ -3,19 +3,23 @@ import { onMounted, ref } from "vue";
 
 import BotonAccion from "@/components/ui/BotonAccion.vue";
 import ModalBase from "@/components/ui/ModalBase.vue";
-import { saleEnvelopes } from "@/db/outbox";
+import { transactionEnvelopes } from "@/db/outbox";
 import { formatMoney, formatTime } from "@/lib/format";
 import { reprintStamped } from "@/services/reprint";
 import { recentTransactions, type TransactionSummary } from "@/services/transactions";
+import { canVoidSale } from "@/services/void-sale";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore } from "@/stores/ui";
 
 /**
- * Transacciones recientes del turno: ver y reimprimir (timbrado si ya tiene
- * e-CF). Reimprimir JAMÁS abre la gaveta (reprintStamped). ModalBase devuelve
- * el foco al input de escaneo al cerrar.
+ * Transacciones recientes del turno: ver, reimprimir y anular. Reimprimir
+ * JAMÁS abre la gaveta. Anular emite arriba (a VentaView) para no anidar
+ * modales. ModalBase devuelve el foco al input de escaneo al cerrar.
  */
-const emit = defineEmits<{ cerrar: [] }>();
+const emit = defineEmits<{
+  cerrar: [];
+  anular: [sale: TransactionSummary];
+}>();
 
 const session = useSessionStore();
 const ui = useUiStore();
@@ -26,8 +30,18 @@ const reimprimiendo = ref<string | null>(null);
 
 onMounted(async () => {
   if (session.ulid === null) return;
-  list.value = recentTransactions(await saleEnvelopes(), session.ulid);
+  list.value = recentTransactions(await transactionEnvelopes(), session.ulid);
 });
+
+async function pedirAnular(t: TransactionSummary) {
+  if (t.kind === "credit_note" || t.voided) return;
+  const elegible = await canVoidSale(t.sale_ulid);
+  if (!elegible.ok) {
+    ui.toast("error", elegible.message ?? "No se puede anular esta venta.");
+    return;
+  }
+  emit("anular", t); // VentaView cierra este modal y abre AnularVenta
+}
 
 async function reimprimir(t: TransactionSummary) {
   if (reimprimiendo.value !== null) return;
@@ -58,19 +72,25 @@ function onKeydown(e: KeyboardEvent) {
 
 <template>
   <ModalBase @cerrar="emit('cerrar')">
-    <div class="flex w-[30rem] flex-col gap-4" @keydown="onKeydown">
+    <div class="flex w-[34rem] flex-col gap-4" @keydown="onKeydown">
       <h2 class="text-xl font-bold text-text">Transacciones del turno</h2>
 
       <ul v-if="list.length > 0" class="max-h-96 divide-y divide-border overflow-y-auto rounded-lg border border-border">
         <li
           v-for="(t, i) in list"
           :key="t.sale_ulid"
-          class="flex cursor-pointer items-center justify-between px-3 py-2.5"
-          :class="i === highlighted ? 'bg-primary text-white' : 'hover:bg-bg text-text'"
-          @click="reimprimir(t)"
+          class="flex items-center justify-between px-3 py-2.5"
+          :class="[i === highlighted ? 'bg-primary text-white' : 'text-text', t.voided ? 'opacity-60' : '']"
         >
           <span class="flex items-center gap-3">
             <span
+              v-if="t.voided"
+              class="rounded px-2 py-0.5 text-xs font-semibold bg-danger/20 text-danger"
+            >
+              ANULADA
+            </span>
+            <span
+              v-else
               class="rounded px-2 py-0.5 text-xs font-semibold"
               :class="t.kind === 'credit_note' ? 'bg-warning/20 text-warning' : 'bg-success/15 text-success'"
             >
@@ -82,10 +102,26 @@ function onKeydown(e: KeyboardEvent) {
             </span>
           </span>
           <span class="flex items-center gap-3">
-            <span class="monto font-semibold">{{ formatMoney(t.total) }}</span>
-            <span class="text-sm" :class="i === highlighted ? 'text-white/80' : 'text-primary'">
+            <span class="monto font-semibold" :class="t.voided ? 'line-through' : ''">{{ formatMoney(t.total) }}</span>
+            <button
+              type="button"
+              tabindex="-1"
+              class="text-sm"
+              :class="i === highlighted ? 'text-white/90 hover:text-white' : 'text-primary hover:underline'"
+              @click="reimprimir(t)"
+            >
               {{ reimprimiendo === t.sale_ulid ? "Imprimiendo…" : "Reimprimir" }}
-            </span>
+            </button>
+            <button
+              v-if="t.kind === 'sale' && !t.voided"
+              type="button"
+              tabindex="-1"
+              class="text-sm"
+              :class="i === highlighted ? 'text-white/90 hover:text-white' : 'text-danger hover:underline'"
+              @click="pedirAnular(t)"
+            >
+              Anular
+            </button>
           </span>
         </li>
       </ul>
