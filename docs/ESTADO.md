@@ -33,6 +33,7 @@
 
 ## Preguntas abiertas (para aterrizar en SyntechPOS si aplica)
 
+- [ ] **🆕 WHITE-LABEL: tema de marca por negocio** — HABILITADO en SyntechPOS@c561c83 (D26). El `GET /sync/bootstrap` ahora trae `settings.theme = { key, primary, primary_hi }` (hex listos). La caja debe: (1) guardar el tema al bootstrapear/re-bootstrapear, (2) aplicar `primary` → token `--color-primary` y `primary_hi` → `--color-primary-hi` en runtime (los tokens ya son variables CSS → re-tematiza al instante, offline), (3) NO tocar los semánticos (verde/rojo/ámbar/azul no cambian). Temas: `teal|cobalt|magenta|violeta|grafito`. Tolerar ausencia de `theme` (servidor viejo) → usar el tema por defecto. Spec: eventos-sync §7.3 + DISENO §3.1.
 - [x] ~~Detail de cuarentena con SQL crudo~~ ✅ RESUELTA en SyntechPOS@42d1bd1: mensaje limpio con nombre de la constraint («Conflicto de unicidad (uq_sales_ticket): …»); el SQL completo va al log del servidor vía report()
 - [x] ~~Seeder demo: Caja 2 (e2e)~~ ✅ RESUELTA en SyntechPOS@42d1bd1: `link_code 654321`; el re-seed la revive (borra el token Sanctum y el hmac_secret) — adiós tinker
 - [x] ~~Emisión e-CF de prueba~~ ✅ DESBLOQUEADA en local por SyntechPOS@452e4aa: `PACIOLI_FAKE=true` (ya activo en el .env del servidor local) simula a Pacioli con QR REAL escaneable y aceptación al primer poll → el poller de ecf-results y la reimpresión timbrada se validan e2e HOY. La validación contra testecf real sigue esperando la API key (0.6)
