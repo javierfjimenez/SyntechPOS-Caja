@@ -64,6 +64,14 @@
 
 ## Bitácora
 
+### 2026-06-08 — Grid de productos + cantidades con +/- (D24/D23)
+
+- **Réplica ampliada** (migración 0006): `brand_id` + `image_url` en products, tabla `brands`. `mapProduct`/`mapBrand`/`applyCatalogPage`; `BrandDelta` opcional (tolera servidor viejo). La migración **fuerza `catalog_version=0`** → re-pull completo una vez para backfill en terminales ya sincronizados (el delta incremental no re-baja filas sin cambio)
+- **Avatar determinista** (`lib/avatar.ts`): iniciales + color por hash del nombre, paleta DISENO — sin assets, sin red. La caja NUNCA depende de una imagen para vender. 7 tests
+- **`GridProductos.vue`** (F3 + botón en la barra): tiles con avatar/imagen, filtro Todos/departamento/marca, **click en tile = +1** (merge con la línea), `+/-` por tile con badge, pesables abren mini-teclado de peso (preview exacto `expectedScaleTotal`, sin floats). Panel auxiliar: queda abierto, total corre abajo, tiles `tabindex=-1` (no roban el foco), ModalBase devuelve el foco al cerrar
+- **`+/-` en el carrito** (`TablaLineasVenta`): por línea no pesable; − en 1 quita la línea. Store: `incrementLine`/`decrementLine`/`decrementByProduct`/`quantityForProduct` (8 tests)
+- **189 tests** unit + e2e ampliado (el servidor real baja `brands`/`brand_id`/`image_url=null`, la réplica los guarda). Demo: 6 marcas, 6 departamentos
+
 ### 2026-06-08 — Validación de contrato de la capa UX (revisión desde SyntechPOS)
 
 Revisión del `ROADMAP-UX.md` y de las 4 funcionalidades construidas hecha desde el repo del contrato (rol de guardián D20). **Veredicto: APROBADO.**
