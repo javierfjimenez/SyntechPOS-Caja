@@ -11,8 +11,8 @@ export interface Theme {
   primaryHi: string;
 }
 
-/** Tema por defecto = teal (idéntico a los tokens de main.css) */
-export const DEFAULT_THEME: Theme = { primary: "#0F766E", primaryHi: "#14B8A6" };
+/** Tema por defecto = cobalt (branding Caja PRO; el negocio puede sobreescribir) */
+export const DEFAULT_THEME: Theme = { primary: "#4338CA", primaryHi: "#6366F1" };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 

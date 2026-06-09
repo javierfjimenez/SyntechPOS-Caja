@@ -1,15 +1,21 @@
-/* Tokens de DISENO.md §3-5 — LEY para toda pantalla. Cero CSS ad-hoc por pantalla. */
+/* Tokens de DISENO.md §3-5 — LEY para toda pantalla. Cero CSS ad-hoc por pantalla.
+   Branding "Caja PRO": neutrales zinc + marca cobalt (tematizable por negocio).
+   Tipografía Manrope (sans) + IBM Plex Mono (montos/códigos) — SyntechPOS@affbbd2. */
 @import "tailwindcss";
 
 @theme {
-  /* Colores base (provisionales hasta branding — DISENO §3) */
-  --color-primary: #0f766e; /* teal-700 — UNA acción principal por pantalla */
-  --color-primary-hi: #14b8a6; /* teal-500 — hover, acentos */
-  --color-bg: #f8fafc; /* slate-50 — fondo general */
+  /* Marca (provisional/tematizable — el negocio puede sobreescribir en runtime, D26) */
+  --color-primary: #4338ca; /* cobalt — UNA acción principal por pantalla */
+  --color-primary-hi: #6366f1; /* cobalt claro — hover, acentos */
+
+  /* Neutrales (paleta zinc) */
+  --color-bg: #fafafa; /* fondo general */
   --color-surface: #ffffff; /* tarjetas, paneles */
-  --color-text: #0f172a; /* slate-900 */
-  --color-text-dim: #64748b; /* slate-500 */
-  --color-border: #e2e8f0; /* slate-200 */
+  --color-text: #18181b; /* zinc-900 */
+  --color-text-dim: #71717a; /* zinc-500 — secundario */
+  --color-faint: #a1a1aa; /* zinc-400 — terciario/placeholder */
+  --color-border: #e4e4e7; /* zinc-200 */
+  --color-zinc-100: #f4f4f5; /* hover suave */
 
   /* Semánticos SAGRADOS: verde=éxito, ámbar=pendiente/contingencia, rojo=atención */
   --color-success: #16a34a; /* green-600 */
@@ -17,9 +23,13 @@
   --color-danger: #dc2626; /* red-600 */
   --color-info: #2563eb; /* blue-600 */
 
-  /* Tipografía (DISENO §4): Inter; mono SOLO montos, códigos y e-NCF */
-  --font-sans: "Inter Variable", Inter, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", monospace;
+  /* Tipografía: Manrope; mono SOLO montos, códigos y e-NCF */
+  --font-sans: "Manrope Variable", Manrope, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Sombras (DISENO §5: 2 niveles) */
+  --shadow-sm: 0 1px 2px 0 rgb(24 24 27 / 0.06);
+  --shadow-lg: 0 12px 30px -8px rgb(24 24 27 / 0.2), 0 4px 12px -6px rgb(24 24 27 / 0.1);
 }
 
 @layer base {
