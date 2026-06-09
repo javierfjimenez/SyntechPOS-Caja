@@ -1,9 +1,10 @@
 import { defineStore } from "pinia";
 
 import { getDb } from "@/db";
-import { fromMilli, toMilli } from "@/lib/decimal";
+import { fromMilli, mulPriceQty, toCents, toMilli } from "@/lib/decimal";
 import {
   computeTotals,
+  distributeDiscount,
   emptySale,
   subtotal,
   totalItems,
@@ -194,6 +195,29 @@ export const useSaleStore = defineStore("sale", {
       const line = this.sale.lines[index];
       if (line === undefined) return;
       line.unit_price = unitPrice;
+      await this.persist();
+    },
+
+    /**
+     * Descuento GLOBAL: lo reparte sobre las líneas (discount_amount) tomando
+     * como base el BRUTO con ITBIS (price × qty). Así los totales y el evento
+     * quedan correctos sin tocar el contrato.
+     * @param mode "pct" (porcentaje) o "amt" (monto RD$)
+     */
+    async applyGlobalDiscount(mode: "pct" | "amt", value: number) {
+      let grossCents = 0n;
+      for (const l of this.sale.lines) {
+        grossCents += mulPriceQty(toCents(l.unit_price), toMilli(l.quantity));
+      }
+      const discountCents =
+        mode === "pct" ? (grossCents * BigInt(Math.round(value * 100))) / 10000n : toCents(value.toFixed(2));
+      const perLine = distributeDiscount(this.sale.lines, discountCents);
+      this.sale.lines.forEach((l, i) => (l.discount_amount = perLine[i] ?? "0.00"));
+      await this.persist();
+    },
+
+    async clearGlobalDiscount() {
+      this.sale.lines.forEach((l) => (l.discount_amount = "0.00"));
       await this.persist();
     },
 

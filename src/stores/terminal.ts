@@ -26,6 +26,7 @@ interface TerminalState {
   maxDiscountPercent: number;
   allowDepartmentSale: boolean;
   ecfEnabled: boolean; // D21: facturación electrónica opcional por negocio
+  blindCount: boolean; // arqueo ciego (no muestra el esperado antes de contar)
   /** 401/403 del servidor: terminal desvinculada — flujo de re-vinculación pendiente */
   revoked: boolean;
   /** 4.12/D14: la app está por debajo de min_client_version (vender SIGUE permitido) */
@@ -47,6 +48,7 @@ const META_KEYS = [
   "setting_max_discount_percent",
   "setting_allow_department_sale",
   "setting_ecf_enabled",
+  "setting_blind_count",
   "theme_primary",
   "theme_primary_hi",
 ];
@@ -63,6 +65,7 @@ export const useTerminalStore = defineStore("terminal", {
     maxDiscountPercent: 10,
     allowDepartmentSale: true,
     ecfEnabled: false, // conservador: sin QR hasta que el bootstrap diga lo contrario
+    blindCount: true, // seguro por defecto: arqueo ciego
     revoked: false,
     updateRequired: false,
     lastServerContact: null,
@@ -85,6 +88,7 @@ export const useTerminalStore = defineStore("terminal", {
       this.maxDiscountPercent = Number(meta.setting_max_discount_percent ?? "10");
       this.allowDepartmentSale = meta.setting_allow_department_sale !== "0";
       this.ecfEnabled = meta.setting_ecf_enabled === "1";
+      this.blindCount = meta.setting_blind_count !== "0"; // ciego salvo que diga 0
       // Tema white-label (D26): aplicar el guardado al arrancar (offline)
       applyTheme(resolveTheme({ primary: meta.theme_primary, primary_hi: meta.theme_primary_hi }));
       this.linked = this.token !== null;
@@ -133,10 +137,12 @@ export const useTerminalStore = defineStore("terminal", {
       await setMeta("setting_max_discount_percent", String(data.settings.max_discount_percent));
       await setMeta("setting_allow_department_sale", data.settings.allow_department_sale ? "1" : "0");
       await setMeta("setting_ecf_enabled", data.settings.ecf_enabled ? "1" : "0");
+      await setMeta("setting_blind_count", data.settings.blind_count === false ? "0" : "1");
       this.scaleFormat = data.business.scale_format;
       this.maxDiscountPercent = data.settings.max_discount_percent;
       this.allowDepartmentSale = data.settings.allow_department_sale;
       this.ecfEnabled = data.settings.ecf_enabled;
+      this.blindCount = data.settings.blind_count !== false;
       // Tema white-label (D26): guardar y re-tematizar al instante
       const theme = resolveTheme(data.settings.theme);
       await setMeta("theme_primary", theme.primary);

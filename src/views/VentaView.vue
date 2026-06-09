@@ -4,6 +4,9 @@ import { useRouter } from "vue-router";
 
 import BuscadorCliente from "@/components/ui/BuscadorCliente.vue";
 import CatalogoPos from "@/components/ui/CatalogoPos.vue";
+import CobroModal from "@/components/ui/CobroModal.vue";
+import DescuentoGlobal from "@/components/ui/DescuentoGlobal.vue";
+import MontoLibre from "@/components/ui/MontoLibre.vue";
 import MovimientoEfectivo from "@/components/ui/MovimientoEfectivo.vue";
 import ProductoDesconocido from "@/components/ui/ProductoDesconocido.vue";
 import RailCategorias from "@/components/ui/RailCategorias.vue";
@@ -21,6 +24,7 @@ import { useCashierStore } from "@/stores/cashier";
 import { useOutboxStore } from "@/stores/outbox";
 import { useSaleStore } from "@/stores/sale";
 import { useSessionStore } from "@/stores/session";
+import { useTerminalStore } from "@/stores/terminal";
 import { useUiStore } from "@/stores/ui";
 
 /**
@@ -32,9 +36,18 @@ const sale = useSaleStore();
 const cashier = useCashierStore();
 const session = useSessionStore();
 const outbox = useOutboxStore();
+const terminal = useTerminalStore();
 const ui = useUiStore();
 
-type Modal = null | "cliente" | "movimiento" | "suspendidas" | "desconocido";
+type Modal =
+  | null
+  | "cliente"
+  | "movimiento"
+  | "suspendidas"
+  | "desconocido"
+  | "cobro"
+  | "descuento"
+  | "montoLibre";
 const modal = ref<Modal>(null);
 const unknownCode = ref("");
 
@@ -128,9 +141,20 @@ async function registrarMovimiento(t: "withdrawal" | "deposit" | "expense", amou
   }
 }
 
-async function cobrar() {
+function cobrar() {
   if (sale.isEmpty) return;
-  await router.push({ name: "cobro" });
+  modal.value = "cobro";
+}
+
+async function cobroCerrado() {
+  modal.value = null;
+  ticketNumber.value = await peekTicketNumber();
+  await refrescarEfectivo();
+}
+
+function onMontoLibre(line: SaleLine) {
+  modal.value = null;
+  void sale.addLine(line);
 }
 async function irACierre() {
   if (!sale.isEmpty) {
@@ -143,16 +167,21 @@ async function devolucion() {
   await router.push({ name: "devolucion" });
 }
 
-// pendientes de Fase 2
 function descuento() {
-  ui.toast("error", "Descuento global — en construcción (Fase 2).");
-}
-function propina() {
-  ui.toast("error", "Propina — en construcción (Fase 2).");
+  if (sale.isEmpty) {
+    ui.toast("error", "Agrega productos antes de aplicar un descuento.");
+    return;
+  }
+  modal.value = "descuento";
 }
 function montoLibre() {
-  ui.toast("error", "Monto libre — en construcción (Fase 2).");
+  if (!terminal.allowDepartmentSale) {
+    ui.toast("error", "La venta por monto libre está desactivada para este negocio.");
+    return;
+  }
+  modal.value = "montoLibre";
 }
+// Propina: diferida (sale.completed no tiene el campo en el contrato)
 
 // ── Atajos ────────────────────────────────────────────────────────────────────
 function onFnKeys(e: KeyboardEvent) {
@@ -160,13 +189,12 @@ function onFnKeys(e: KeyboardEvent) {
   const map: Record<string, () => void> = {
     F2: () => (modal.value = "cliente"),
     F3: descuento,
-    F4: propina,
     F5: () => void suspender(),
     F6: () => (modal.value = "suspendidas"),
     F7: () => (modal.value = "movimiento"),
     F8: () => void irACierre(),
     F9: montoLibre,
-    F12: () => void cobrar(),
+    F12: cobrar,
   };
   const fn = map[e.key];
   if (fn) {
@@ -182,12 +210,10 @@ const customerName = computed(() => sale.sale.customer?.name ?? null);
   <div class="flex h-screen flex-col bg-bg">
     <TopbarPos />
     <ToolbarPos
-      :propina-on="false"
       :held-count="sale.suspendedCount"
       :drawer-cash="drawerCash"
       @cliente="modal = 'cliente'"
       @descuento="descuento"
-      @propina="propina"
       @suspender="suspender"
       @recuperar="modal = 'suspendidas'"
       @efectivo="modal = 'movimiento'"
@@ -224,7 +250,12 @@ const customerName = computed(() => sale.sale.customer?.name ?? null);
 
     <ToastCaja />
 
-    <!-- Modales reutilizados (Fase 2 los restiliza al diseño cobalt) -->
+    <!-- Modales cobalt -->
+    <CobroModal v-if="modal === 'cobro'" @completada="refrescarEfectivo" @cerrar="cobroCerrado" />
+    <DescuentoGlobal v-if="modal === 'descuento'" @cerrar="modal = null" />
+    <MontoLibre v-if="modal === 'montoLibre'" @agregar="onMontoLibre" @cerrar="modal = null" />
+
+    <!-- Modales reutilizados -->
     <BuscadorCliente v-if="modal === 'cliente'" @seleccionar="setCustomer" @cerrar="modal = null" />
     <MovimientoEfectivo v-if="modal === 'movimiento'" @registrar="registrarMovimiento" @cerrar="modal = null" />
     <VentasSuspendidas v-if="modal === 'suspendidas'" @recuperar="recover" @cerrar="modal = null" />

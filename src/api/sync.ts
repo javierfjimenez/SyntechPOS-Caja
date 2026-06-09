@@ -102,6 +102,8 @@ export interface BootstrapResult {
     allow_department_sale: boolean;
     /** D21: sin e-CF el ticket va sin QR ni leyenda de contingencia */
     ecf_enabled: boolean;
+    /** Arqueo CIEGO (no muestra el esperado antes de contar). Default true. Opcional */
+    blind_count?: boolean;
     /** D26: tema white-label por negocio (hex listos). Opcional: servidor viejo */
     theme?: { key: string; primary: string; primary_hi: string } | null;
   };

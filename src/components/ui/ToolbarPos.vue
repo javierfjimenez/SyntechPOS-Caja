@@ -6,7 +6,6 @@ import { formatMoney } from "@/lib/format";
  * Emite hacia VentaView, que enruta a los modales/acciones reales.
  */
 defineProps<{
-  propinaOn: boolean;
   heldCount: number;
   drawerCash: string;
 }>();
@@ -14,7 +13,6 @@ defineProps<{
 const emit = defineEmits<{
   cliente: [];
   descuento: [];
-  propina: [];
   suspender: [];
   recuperar: [];
   efectivo: [];
@@ -35,11 +33,6 @@ const emit = defineEmits<{
     <button type="button" tabindex="-1" class="fn" @click="emit('descuento')">
       <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M9.493 2.853a.75.75 0 0 0-1.486-.205L7.545 6H4.198a.75.75 0 0 0 0 1.5h3.14l-.69 5H3.302a.75.75 0 0 0 0 1.5h3.14l-.435 3.148a.75.75 0 0 0 1.486.205L7.955 14h2.986l-.434 3.148a.75.75 0 0 0 1.486.205L12.456 14h3.346a.75.75 0 0 0 0-1.5h-3.14l.69-5h3.346a.75.75 0 0 0 0-1.5h-3.14l.435-3.147a.75.75 0 0 0-1.486-.205L11.545 6H8.559l.434-3.147ZM8.353 7.5l-.69 5h2.986l.69-5H8.353Z" clip-rule="evenodd" /></svg>
       <span class="fl">Descuento</span><span class="fk">F3</span>
-    </button>
-
-    <button type="button" tabindex="-1" class="fn" @click="emit('propina')">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm.75 3.75a.75.75 0 0 0-1.5 0v.816a3.836 3.836 0 0 0-1.72.756C8.818 8.138 8.418 8.92 8.418 9.75c0 .829.4 1.612 1.113 2.178.502.4 1.102.647 1.719.756v2.978a2.536 2.536 0 0 1-.921-.421l-.879-.66a.75.75 0 0 0-.9 1.2l.879.66c.533.4 1.169.645 1.821.75V18a.75.75 0 0 0 1.5 0v-.81a4.124 4.124 0 0 0 1.821-.749c.745-.559 1.179-1.344 1.179-2.191 0-.847-.434-1.632-1.179-2.191a4.122 4.122 0 0 0-1.821-.75V8.354c.29.082.559.213.786.393l.415.33a.75.75 0 0 0 .933-1.175l-.415-.33a3.836 3.836 0 0 0-1.719-.755V6Z" clip-rule="evenodd" /></svg>
-      <span class="fl">{{ propinaOn ? "Propina ✓" : "Propina" }}</span><span class="fk">F4</span>
     </button>
 
     <button type="button" tabindex="-1" class="fn" @click="emit('suspender')">

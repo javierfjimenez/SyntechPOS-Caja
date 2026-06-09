@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import evento from "../../docs/fixtures/evento-sale-completed.json";
+import { toCents } from "@/lib/decimal";
 import {
   computeTotals,
+  distributeDiscount,
   lineBreakdown,
   lineTotal,
   subtotal,
   totalItems,
   type SaleLine,
 } from "@/services/sale";
+
+const toCentsSum = (vals: string[]): bigint => vals.reduce((s, v) => s + toCents(v), 0n);
 
 const linea = (partial: Partial<SaleLine>): SaleLine => ({
   product_id: 88,
@@ -78,6 +82,34 @@ describe("computeTotals (mezcla de tasas, como un carrito real)", () => {
 
   it("venta vacía: todo en cero", () => {
     expect(computeTotals([]).total).toBe("0.00");
+  });
+});
+
+describe("distributeDiscount (descuento global prorrateado, suma exacta)", () => {
+  it("reparte proporcional al bruto y la suma cuadra EXACTO", () => {
+    const lines = [linea({ quantity: "2.000", unit_price: "75.00" }), linea({ quantity: "1.000", unit_price: "385.00" })];
+    // bruto: 150 + 385 = 535; descuento 53.50 (10%)
+    const d = distributeDiscount(lines, 5350n);
+    expect(d).toEqual(["15.00", "38.50"]); // 150*10% y 385*10%
+    expect(toCentsSum(d)).toBe(5350n);
+  });
+
+  it("el remanente de redondeo va a la última línea (suma exacta)", () => {
+    const lines = [linea({ unit_price: "10.00" }), linea({ unit_price: "10.00" }), linea({ unit_price: "10.00" })];
+    // bruto 30; descuento 10.00 → 3.33 + 3.33 + 3.34
+    const d = distributeDiscount(lines, 1000n);
+    expect(toCentsSum(d)).toBe(1000n);
+    expect(d[2]).toBe("3.34");
+  });
+
+  it("descuento mayor al bruto se capa al bruto", () => {
+    const lines = [linea({ unit_price: "100.00" })];
+    expect(distributeDiscount(lines, 99999n)).toEqual(["100.00"]);
+  });
+
+  it("sin líneas o descuento 0 → ceros", () => {
+    expect(distributeDiscount([], 100n)).toEqual([]);
+    expect(distributeDiscount([linea({})], 0n)).toEqual(["0.00"]);
   });
 });
 

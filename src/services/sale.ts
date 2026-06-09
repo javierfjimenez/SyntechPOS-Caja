@@ -158,6 +158,24 @@ export function subtotal(totals: SaleTotals): string {
   );
 }
 
+/**
+ * Reparte un descuento global (en centavos) entre las líneas, proporcional al
+ * bruto de cada una. El remanente del redondeo va a la última línea para que la
+ * suma sea EXACTA. Devuelve el discount_amount (string) por línea.
+ */
+export function distributeDiscount(lines: SaleLine[], totalDiscountCents: bigint): string[] {
+  if (lines.length === 0) return [];
+  const grosses = lines.map((l) => mulPriceQty(toCents(l.unit_price), toMilli(l.quantity)));
+  const totalGross = grosses.reduce((s, g) => s + g, 0n);
+  if (totalGross === 0n || totalDiscountCents <= 0n) return lines.map(() => "0.00");
+
+  const capped = totalDiscountCents > totalGross ? totalGross : totalDiscountCents;
+  const perLine = grosses.map((g) => (g * capped) / totalGross); // trunca
+  const assigned = perLine.reduce((s, d) => s + d, 0n);
+  perLine[perLine.length - 1] = perLine[perLine.length - 1]! + (capped - assigned); // remanente
+  return perLine.map((d) => fromCents(d));
+}
+
 /** Items totales (cantidades sumadas): "7.345" como el contador del wireframe */
 export function totalItems(lines: SaleLine[]): string {
   let milli = 0n;
