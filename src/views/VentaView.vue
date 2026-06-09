@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 
 import BuscadorCliente from "@/components/ui/BuscadorCliente.vue";
 import CatalogoPos from "@/components/ui/CatalogoPos.vue";
+import CierreModal from "@/components/ui/CierreModal.vue";
 import CobroModal from "@/components/ui/CobroModal.vue";
 import DescuentoGlobal from "@/components/ui/DescuentoGlobal.vue";
 import MontoLibre from "@/components/ui/MontoLibre.vue";
@@ -47,7 +48,8 @@ type Modal =
   | "desconocido"
   | "cobro"
   | "descuento"
-  | "montoLibre";
+  | "montoLibre"
+  | "cierre";
 const modal = ref<Modal>(null);
 const unknownCode = ref("");
 
@@ -156,12 +158,17 @@ function onMontoLibre(line: SaleLine) {
   modal.value = null;
   void sale.addLine(line);
 }
-async function irACierre() {
+function irACierre() {
   if (!sale.isEmpty) {
     ui.toast("error", "Termina o suspende la venta antes de cerrar la caja.");
     return;
   }
-  await router.push({ name: "cierre" });
+  modal.value = "cierre";
+}
+async function cajaCerrada() {
+  modal.value = null;
+  cashier.logout();
+  await router.replace({ name: "login" });
 }
 async function devolucion() {
   await router.push({ name: "devolucion" });
@@ -254,6 +261,7 @@ const customerName = computed(() => sale.sale.customer?.name ?? null);
     <CobroModal v-if="modal === 'cobro'" @completada="refrescarEfectivo" @cerrar="cobroCerrado" />
     <DescuentoGlobal v-if="modal === 'descuento'" @cerrar="modal = null" />
     <MontoLibre v-if="modal === 'montoLibre'" @agregar="onMontoLibre" @cerrar="modal = null" />
+    <CierreModal v-if="modal === 'cierre'" @cerrada="cajaCerrada" @cerrar="modal = null" />
 
     <!-- Modales reutilizados -->
     <BuscadorCliente v-if="modal === 'cliente'" @seleccionar="setCustomer" @cerrar="modal = null" />
