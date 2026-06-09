@@ -115,6 +115,26 @@ export async function listDepartments(): Promise<DepartmentRow[]> {
   );
 }
 
+export interface DepartmentCount {
+  id: number;
+  name: string;
+  count: number;
+}
+
+/** Departamentos activos con el conteo de productos activos (rail de categorías) */
+export async function listDepartmentCounts(): Promise<{ total: number; departments: DepartmentCount[] }> {
+  const db = await getDb();
+  const departments = await db.select<DepartmentCount[]>(
+    `SELECT d.id, d.name, COUNT(p.id) AS count
+     FROM departments d
+     LEFT JOIN products p ON p.department_id = d.id AND p.is_active = 1
+     WHERE d.is_active = 1
+     GROUP BY d.id, d.name ORDER BY d.name`,
+  );
+  const totalRows = await db.select<{ n: number }[]>("SELECT COUNT(*) AS n FROM products WHERE is_active = 1");
+  return { total: totalRows[0]?.n ?? 0, departments };
+}
+
 export interface BrandRow {
   id: number;
   name: string;

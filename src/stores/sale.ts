@@ -181,6 +181,22 @@ export const useSaleStore = defineStore("sale", {
       if (index >= 0) await this.decrementLine(index);
     },
 
+    /** Quita una línea por índice (botón eliminar del ticket) */
+    async removeLineAt(index: number) {
+      if (index < 0 || index >= this.sale.lines.length) return;
+      this.sale.lines.splice(index, 1);
+      this.selectedIndex = Math.min(this.selectedIndex, this.sale.lines.length - 1);
+      await this.persist();
+    },
+
+    /** Edita el precio unitario de una línea (campo editable del ticket) */
+    async setLinePrice(index: number, unitPrice: string) {
+      const line = this.sale.lines[index];
+      if (line === undefined) return;
+      line.unit_price = unitPrice;
+      await this.persist();
+    },
+
     /** Cuántas unidades de ese producto hay en el carrito (badge del grid) */
     quantityForProduct(productId: number): string {
       const line = this.sale.lines.find((l) => l.product_id === productId && !l.is_weighable);

@@ -1,185 +1,113 @@
 <script setup lang="ts">
-import { invoke } from "@tauri-apps/api/core";
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
-import BarraAcciones from "@/components/ui/BarraAcciones.vue";
-import BarraEstado from "@/components/ui/BarraEstado.vue";
-import BotonAccion from "@/components/ui/BotonAccion.vue";
-import AnularVenta from "@/components/ui/AnularVenta.vue";
 import BuscadorCliente from "@/components/ui/BuscadorCliente.vue";
-import Calculadora from "@/components/ui/Calculadora.vue";
-import ConfiguracionImpresora from "@/components/ui/ConfiguracionImpresora.vue";
-import EditarLinea from "@/components/ui/EditarLinea.vue";
-import GridProductos from "@/components/ui/GridProductos.vue";
-import InputEscaneo from "@/components/ui/InputEscaneo.vue";
-import ModalBase from "@/components/ui/ModalBase.vue";
+import CatalogoPos from "@/components/ui/CatalogoPos.vue";
 import MovimientoEfectivo from "@/components/ui/MovimientoEfectivo.vue";
-import PanelTotal from "@/components/ui/PanelTotal.vue";
-import PieAtajos from "@/components/ui/PieAtajos.vue";
 import ProductoDesconocido from "@/components/ui/ProductoDesconocido.vue";
-import TablaLineasVenta from "@/components/ui/TablaLineasVenta.vue";
+import RailCategorias from "@/components/ui/RailCategorias.vue";
+import TicketVenta from "@/components/ui/TicketVenta.vue";
 import ToastCaja from "@/components/ui/ToastCaja.vue";
-import TransaccionesRecientes from "@/components/ui/TransaccionesRecientes.vue";
+import ToolbarPos from "@/components/ui/ToolbarPos.vue";
+import TopbarPos from "@/components/ui/TopbarPos.vue";
 import VentasSuspendidas from "@/components/ui/VentasSuspendidas.vue";
 import { beep } from "@/lib/beep";
-import { formatMoney } from "@/lib/format";
-import { findByCode, scaleToLine, productToLine, type ProductRow } from "@/services/product-lookup";
-import { parseScaleBarcode } from "@/services/scale-barcode";
+import { peekTicketNumber } from "@/db/outbox";
+import { fromCents } from "@/lib/decimal";
+import { listDepartmentCounts, type DepartmentCount } from "@/services/product-lookup";
 import type { SaleCustomer, SaleLine } from "@/services/sale";
-import type { TransactionSummary } from "@/services/transactions";
-import { voidSale } from "@/services/void-sale";
-import type { UserRow } from "@/services/auth";
 import { useCashierStore } from "@/stores/cashier";
 import { useOutboxStore } from "@/stores/outbox";
 import { useSaleStore } from "@/stores/sale";
 import { useSessionStore } from "@/stores/session";
-import { useTerminalStore } from "@/stores/terminal";
 import { useUiStore } from "@/stores/ui";
 
 /**
- * Pantalla 4 — VENTA (ui-caja §5): la cajera vive aquí. Layout 60/40,
- * el InputEscaneo es el dueño del foco, todo se opera sin mouse.
+ * Pantalla de venta — diseño Caja PRO (3 columnas): rail de categorías ·
+ * catálogo central · ticket. Topbar de marca + toolbar de funciones.
  */
 const router = useRouter();
 const sale = useSaleStore();
 const cashier = useCashierStore();
 const session = useSessionStore();
 const outbox = useOutboxStore();
-const terminal = useTerminalStore();
 const ui = useUiStore();
 
-type Modal =
-  | null
-  | "desconocido"
-  | "cliente"
-  | "suspendidas"
-  | "editar"
-  | "menu"
-  | "confirmarCancelar"
-  | "impresora"
-  | "movimiento"
-  | "calculadora"
-  | "recientes"
-  | "anular";
-
-async function pantallaCompleta() {
-  try {
-    await invoke("toggle_fullscreen");
-  } catch {
-    // sin ventana (entorno no-Tauri): sin efecto
-  }
-}
+type Modal = null | "cliente" | "movimiento" | "suspendidas" | "desconocido";
 const modal = ref<Modal>(null);
 const unknownCode = ref("");
-const ventaAAnular = ref<TransactionSummary | null>(null);
 
-onMounted(() => {
-  void sale.restore(); // crash/apagón: la venta vuelve intacta
+const railDept = ref<number | null>(null);
+const railTotal = ref(0);
+const railDepts = ref<DepartmentCount[]>([]);
+
+const tipo = ref<"consumo" | "credito">("consumo");
+const ticketNumber = ref(1);
+const drawerCash = ref("0.00");
+
+onMounted(async () => {
+  await sale.restore();
+  await refrescarRail();
+  ticketNumber.value = await peekTicketNumber();
+  await refrescarEfectivo();
   window.addEventListener("keydown", onFnKeys);
 });
 onUnmounted(() => window.removeEventListener("keydown", onFnKeys));
 
-// ── Anulación de venta (sale.voided) ──────────────────────────────────────────
-
-function abrirAnular(t: TransactionSummary) {
-  ventaAAnular.value = t;
-  modal.value = "anular"; // se cierra Recientes y se abre AnularVenta (sin anidar)
+async function refrescarRail() {
+  const { total, departments } = await listDepartmentCounts();
+  railTotal.value = total;
+  railDepts.value = departments;
 }
 
-async function ejecutarAnulacion(reason: string, supervisor: UserRow) {
-  if (ventaAAnular.value === null) return;
-  const ticket = ventaAAnular.value.ticket_number;
-  modal.value = null;
-  try {
-    await voidSale(ventaAAnular.value.sale_ulid, reason, supervisor.id);
-    void outbox.drainNow();
-    ui.toast("exito", `Venta #${ticket} anulada.`);
-  } catch (e) {
-    ui.toast("error", e instanceof Error ? e.message : "No se pudo anular la venta.");
-  } finally {
-    ventaAAnular.value = null;
-  }
-}
-
-// ── Agregar líneas ────────────────────────────────────────────────────────────
-
-async function addProduct(product: ProductRow) {
-  await sale.addLine(productToLine(product));
-}
-
-async function onCode(code: string) {
-  const product = await findByCode(code);
-  if (product !== null) {
-    await sale.addLine(productToLine(product));
+async function refrescarEfectivo() {
+  if (!session.isOpen) {
+    drawerCash.value = "0.00";
     return;
   }
+  try {
+    drawerCash.value = (await session.expected()).cash;
+  } catch {
+    drawerCash.value = fromCents(0n);
+  }
+}
+
+// ── Catálogo ──────────────────────────────────────────────────────────────────
+function onDesconocido(code: string) {
   beep();
   unknownCode.value = code;
   modal.value = "desconocido";
 }
-
-async function onScale(code: string) {
-  const parsed = parseScaleBarcode(code, terminal.scaleFormat);
-  if (parsed === null) {
-    beep();
-    unknownCode.value = code;
-    modal.value = "desconocido";
-    return;
-  }
-  const product = await findByCode(parsed.productCode);
-  if (product === null) {
-    beep();
-    unknownCode.value = code;
-    modal.value = "desconocido";
-    return;
-  }
-  await sale.addLine(scaleToLine(product, parsed));
-}
-
 async function addDepartmentLine(line: SaleLine) {
   modal.value = null;
   await sale.addLine(line);
 }
 
-// ── Acciones de línea ─────────────────────────────────────────────────────────
-
-async function removeLine() {
-  const removed = await sale.removeSelected();
-  if (removed === null) return;
-  ui.toast("exito", `Se quitó ${removed.description}`, {
-    timeoutMs: 5000,
-    action: { label: "Deshacer", run: () => void sale.undoRemove() },
-  });
-}
-
-async function saveLineEdit(
-  changes: { quantity: string; discount_amount: string },
-  supervisor: UserRow | null,
-) {
-  modal.value = null;
-  await sale.updateLine(sale.selectedIndex, changes);
-  if (supervisor !== null) {
-    await sale.setSupervisor(supervisor.id);
-  }
-}
-
-// ── Cliente / suspendidas / cobro ─────────────────────────────────────────────
-
+// ── Toolbar / ticket ──────────────────────────────────────────────────────────
 async function setCustomer(customer: SaleCustomer | null) {
   modal.value = null;
   await sale.setCustomer(customer);
 }
-
-async function suspend() {
-  if (cashier.current === null) return;
-  if (await sale.suspend(cashier.current.id)) {
-    ui.toast("exito", "Venta suspendida. Recupérala con F9.");
-  } else if (!sale.isEmpty) {
-    ui.toast("error", "Máximo 5 ventas suspendidas. Recupera una con F9.");
+function setTipo(t: "consumo" | "credito") {
+  tipo.value = t;
+  if (t === "credito" && (sale.sale.customer === null || sale.sale.customer.id === null)) {
+    ui.toast("error", "Crédito fiscal requiere un cliente con RNC.");
+    modal.value = "cliente";
   }
 }
+async function vaciar() {
+  await sale.clear();
+}
 
+async function suspender() {
+  if (cashier.current === null) return;
+  if (await sale.suspend(cashier.current.id)) {
+    ui.toast("exito", "Venta puesta en espera (F6 para recuperar).");
+  } else if (!sale.isEmpty) {
+    ui.toast("error", "Máximo 5 ventas en espera.");
+  }
+}
 async function recover(id: number) {
   modal.value = null;
   if (!(await sale.recover(id))) {
@@ -187,259 +115,124 @@ async function recover(id: number) {
   }
 }
 
-async function cobrar() {
-  if (sale.isEmpty) return;
-  await router.push({ name: "cobro" });
-}
-
-// ── Menú (F10) ────────────────────────────────────────────────────────────────
-
-async function registrarMovimiento(
-  tipo: "withdrawal" | "deposit" | "expense",
-  amount: string,
-  reason: string,
-) {
+async function registrarMovimiento(t: "withdrawal" | "deposit" | "expense", amount: string, reason: string) {
   if (cashier.current === null) return;
   modal.value = null;
   try {
-    await session.addMovement(tipo, amount, reason, cashier.current.id);
+    await session.addMovement(t, amount, reason, cashier.current.id);
     void outbox.drainNow();
-    ui.toast("exito", `Movimiento registrado: ${formatMoney(amount)}.`);
+    await refrescarEfectivo();
+    ui.toast("exito", "Movimiento registrado.");
   } catch (e) {
     ui.toast("error", e instanceof Error ? e.message : "No se pudo registrar el movimiento.");
   }
 }
 
-async function imprimirReporteX() {
-  if (cashier.current === null || session.openedAt === null) return;
-  modal.value = null;
-  try {
-    const activity = await session.activity();
-    const { expectedAmounts } = await import("@/services/session-report");
-    const { printSessionReport } = await import("@/services/session-print");
-    await printSessionReport({
-      kind: "X",
-      zNumber: null,
-      cashierName: cashier.current.name,
-      openedAt: new Date(session.openedAt),
-      openingAmount: session.openingAmount ?? "0.00",
-      activity,
-      expected: expectedAmounts(session.openingAmount ?? "0.00", activity),
-      counted: null,
-      note: null,
-    });
-    ui.toast("exito", "Reporte X enviado a la impresora.");
-  } catch (e) {
-    ui.toast("error", `Reporte X pendiente de imprimir: ${e instanceof Error ? e.message : e}`);
-  }
+async function cobrar() {
+  if (sale.isEmpty) return;
+  await router.push({ name: "cobro" });
 }
-
 async function irACierre() {
   if (!sale.isEmpty) {
-    modal.value = null;
-    ui.toast("error", "Termina o suspende la venta en curso antes de cerrar la sesión.");
+    ui.toast("error", "Termina o suspende la venta antes de cerrar la caja.");
     return;
   }
-  modal.value = null;
   await router.push({ name: "cierre" });
 }
-
-async function cancelSale() {
-  modal.value = null;
-  await sale.clear();
-  ui.toast("exito", "Venta cancelada.");
+async function devolucion() {
+  await router.push({ name: "devolucion" });
 }
 
-async function changeCashier() {
-  modal.value = null;
-  cashier.logout();
-  await router.replace({ name: "login" });
+// pendientes de Fase 2
+function descuento() {
+  ui.toast("error", "Descuento global — en construcción (Fase 2).");
+}
+function propina() {
+  ui.toast("error", "Propina — en construcción (Fase 2).");
+}
+function montoLibre() {
+  ui.toast("error", "Monto libre — en construcción (Fase 2).");
 }
 
-// ── Atajos F (funcionan con cualquier foco, sin modal abierto) ────────────────
-
+// ── Atajos ────────────────────────────────────────────────────────────────────
 function onFnKeys(e: KeyboardEvent) {
   if (ui.modalOpen) return;
-  switch (e.key) {
-    case "F4":
-      modal.value = "cliente";
-      break;
-    case "F6":
-      if (sale.selectedIndex >= 0) modal.value = "editar";
-      break;
-    case "F8":
-      void suspend();
-      break;
-    case "F9":
-      modal.value = "suspendidas";
-      break;
-    case "F10":
-      modal.value = "menu";
-      break;
-    case "F11":
-      void pantallaCompleta();
-      break;
-    case "F12":
-      cobrar();
-      break;
-    default:
-      return;
+  const map: Record<string, () => void> = {
+    F2: () => (modal.value = "cliente"),
+    F3: descuento,
+    F4: propina,
+    F5: () => void suspender(),
+    F6: () => (modal.value = "suspendidas"),
+    F7: () => (modal.value = "movimiento"),
+    F8: () => void irACierre(),
+    F9: montoLibre,
+    F12: () => void cobrar(),
+  };
+  const fn = map[e.key];
+  if (fn) {
+    e.preventDefault();
+    fn();
   }
-  e.preventDefault();
 }
+
+const customerName = computed(() => sale.sale.customer?.name ?? null);
 </script>
 
 <template>
   <div class="flex h-screen flex-col bg-bg">
-    <BarraEstado />
-    <BarraAcciones
-      @calculadora="modal = 'calculadora'"
-      @pantalla-completa="pantallaCompleta"
-      @recientes="modal = 'recientes'"
-      @gasto="modal = 'movimiento'"
-      @cierre="irACierre"
+    <TopbarPos />
+    <ToolbarPos
+      :propina-on="false"
+      :held-count="sale.suspendedCount"
+      :drawer-cash="drawerCash"
+      @cliente="modal = 'cliente'"
+      @descuento="descuento"
+      @propina="propina"
+      @suspender="suspender"
+      @recuperar="modal = 'suspendidas'"
+      @efectivo="modal = 'movimiento'"
+      @devolucion="devolucion"
+      @cerrar="irACierre"
     />
 
-    <main class="grid min-h-0 flex-1 grid-cols-[3fr_2fr]">
-      <!-- Izquierda: escaneo + líneas + totales + COBRAR -->
-      <section class="flex min-h-0 flex-col">
-        <div class="flex min-h-0 flex-1 flex-col gap-2 p-3">
-          <InputEscaneo
-            @agregar="addProduct"
-            @codigo="onCode"
-            @escaneo-balanza="onScale"
-            @cobrar="cobrar"
-            @quitar-linea="removeLine"
-          />
-          <TablaLineasVenta
-            class="min-h-0 flex-1"
-            :lines="sale.sale.lines"
-            :selected-index="sale.selectedIndex"
-            @seleccionar="sale.selectedIndex = $event"
-            @incrementar="sale.incrementLine($event)"
-            @decrementar="sale.decrementLine($event)"
-          />
-        </div>
-
-        <PanelTotal
-          :totals="sale.totals"
-          :customer-name="sale.sale.customer?.name ?? null"
-          :suspended-count="sale.suspendedCount"
-          :disabled="sale.isEmpty"
-          @cobrar="cobrar"
-          @cambiar-cliente="modal = 'cliente'"
-        />
-      </section>
-
-      <!-- Derecha: grid de productos SIEMPRE visible -->
-      <GridProductos />
-    </main>
-
-    <PieAtajos
-      :atajos="[
-        { tecla: 'F2', label: 'Buscar' },
-        { tecla: 'F4', label: 'Cliente' },
-        { tecla: 'F6', label: 'Cant/Desc línea' },
-        { tecla: 'F8', label: 'Suspender' },
-        { tecla: 'F12', label: 'COBRAR' },
-        { tecla: 'F10', label: 'Menú' },
-        { tecla: 'F11', label: 'Pantalla' },
-      ]"
-    />
+    <div class="flex min-h-0 flex-1">
+      <RailCategorias
+        :total="railTotal"
+        :departments="railDepts"
+        :active="railDept"
+        @seleccionar="railDept = $event"
+      />
+      <CatalogoPos
+        :department-id="railDept"
+        @cobrar="cobrar"
+        @desconocido="onDesconocido"
+        @monto-libre="montoLibre"
+      />
+      <TicketVenta
+        :ticket-number="ticketNumber"
+        :tipo="tipo"
+        :customer-name="customerName"
+        :propina-label="null"
+        propina-monto="0.00"
+        :descuento-monto="sale.totals.discount_total"
+        @vaciar="vaciar"
+        @set-tipo="setTipo"
+        @cliente="modal = 'cliente'"
+        @cobrar="cobrar"
+      />
+    </div>
 
     <ToastCaja />
 
-    <!-- Modales (uno a la vez; ModalBase devuelve el foco al cerrar) -->
-    <Calculadora v-if="modal === 'calculadora'" @cerrar="modal = null" />
-
-    <TransaccionesRecientes
-      v-if="modal === 'recientes'"
-      @anular="abrirAnular"
-      @cerrar="modal = null"
-    />
-
-    <AnularVenta
-      v-if="modal === 'anular' && ventaAAnular"
-      :sale="ventaAAnular"
-      @anular="ejecutarAnulacion"
-      @cerrar="modal = null; ventaAAnular = null"
-    />
-
+    <!-- Modales reutilizados (Fase 2 los restiliza al diseño cobalt) -->
+    <BuscadorCliente v-if="modal === 'cliente'" @seleccionar="setCustomer" @cerrar="modal = null" />
+    <MovimientoEfectivo v-if="modal === 'movimiento'" @registrar="registrarMovimiento" @cerrar="modal = null" />
+    <VentasSuspendidas v-if="modal === 'suspendidas'" @recuperar="recover" @cerrar="modal = null" />
     <ProductoDesconocido
       v-if="modal === 'desconocido'"
       :code="unknownCode"
       @agregar="addDepartmentLine"
       @cerrar="modal = null"
     />
-
-    <BuscadorCliente
-      v-if="modal === 'cliente'"
-      @seleccionar="setCustomer"
-      @cerrar="modal = null"
-    />
-
-    <VentasSuspendidas
-      v-if="modal === 'suspendidas'"
-      @recuperar="recover"
-      @cerrar="modal = null"
-    />
-
-    <EditarLinea
-      v-if="modal === 'editar' && sale.sale.lines[sale.selectedIndex]"
-      :line="sale.sale.lines[sale.selectedIndex]!"
-      @guardar="saveLineEdit"
-      @cerrar="modal = null"
-    />
-
-    <ModalBase v-if="modal === 'menu'" @cerrar="modal = null">
-      <div class="flex w-80 flex-col gap-2">
-        <h2 class="mb-2 text-lg font-bold text-text">Menú</h2>
-        <BotonAccion variante="secundario" @click="router.push({ name: 'devolucion' })">
-          Devolución (PIN supervisor)
-        </BotonAccion>
-        <BotonAccion variante="secundario" @click="router.push({ name: 'estado' })">
-          Estado de la caja
-        </BotonAccion>
-        <BotonAccion variante="secundario" @click="modal = 'movimiento'">
-          Retiro / gasto de efectivo
-        </BotonAccion>
-        <BotonAccion variante="secundario" @click="imprimirReporteX">
-          Imprimir reporte X (parcial)
-        </BotonAccion>
-        <BotonAccion variante="secundario" @click="irACierre">
-          Cierre de sesión (arqueo)
-        </BotonAccion>
-        <BotonAccion variante="secundario" @click="modal = 'impresora'">Impresora</BotonAccion>
-        <BotonAccion variante="secundario" @click="changeCashier">
-          Bloquear / cambiar cajero
-        </BotonAccion>
-        <BotonAccion variante="peligro" :disabled="sale.isEmpty" @click="modal = 'confirmarCancelar'">
-          Cancelar venta
-        </BotonAccion>
-        <BotonAccion variante="secundario" @click="modal = null">Seguir vendiendo (ESC)</BotonAccion>
-      </div>
-    </ModalBase>
-
-    <MovimientoEfectivo
-      v-if="modal === 'movimiento'"
-      @registrar="registrarMovimiento"
-      @cerrar="modal = null"
-    />
-
-    <ConfiguracionImpresora v-if="modal === 'impresora'" @cerrar="modal = null" />
-
-    <ModalBase v-if="modal === 'confirmarCancelar'" @cerrar="modal = null">
-      <div class="flex w-80 flex-col gap-4">
-        <h2 class="text-lg font-bold text-text">¿Cancelar la venta completa?</h2>
-        <p class="text-text-dim">
-          Se quitarán {{ sale.sale.lines.length }} líneas por
-          <span class="monto font-semibold text-text">{{ formatMoney(sale.totals.total) }}</span>.
-        </p>
-        <div class="flex justify-end gap-2">
-          <BotonAccion variante="secundario" @click="modal = null">Seguir vendiendo</BotonAccion>
-          <BotonAccion variante="peligro" @click="cancelSale">Cancelar venta</BotonAccion>
-        </div>
-      </div>
-    </ModalBase>
   </div>
 </template>

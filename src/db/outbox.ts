@@ -95,3 +95,8 @@ export async function nextTicketNumber(): Promise<number> {
   await setMeta("next_ticket_number", String(current + 1));
   return current;
 }
+
+/** Próximo número de ticket SIN consumirlo (para mostrar la venta en curso) */
+export async function peekTicketNumber(): Promise<number> {
+  return Number((await getMeta("next_ticket_number")) ?? "1");
+}
