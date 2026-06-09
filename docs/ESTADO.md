@@ -66,6 +66,15 @@
 
 ## Bitácora
 
+### 2026-06-09 — Rediseño "Caja PRO" (mockup cobalt) — Fase 1 + Fase 2 núcleo
+
+- **Referencia**: `tema/syntechpos-cobalt-pos-pro_1.html` (prototipo del dueño). Replicado, sin copiar código de terceros
+- **Fundación**: Manrope + IBM Plex Mono (offline, fontsource); paleta cobalt/zinc; default theme cobalt (tematizable D26). Re-skinea toda la app
+- **Fase 1 — layout 3 columnas**: TopbarPos (marca, En línea·DGII/Contingencia, reloj, avatar), ToolbarPos (funciones + atajos + Efectivo en caja real), RailCategorias (departamentos con conteos), CatalogoPos (escaneo que filtra el grid en vivo + monto libre + tiles avatar/Exento, pesables), TicketVenta (E32/E31, cliente, stepper + precio editable, totales, Cobrar). Motor real; política de foco intacta
+- **Fase 2 — modales cobalt + features**: `ModalPro` (shell), `CobroModal` (pago dividido + pantalla de éxito, lógica real), `DescuentoGlobal` (% o monto, **prorrateado a las líneas** con `distributeDiscount` + PIN si supera el umbral), `MontoLibre` (precio manual + ITBIS), `CierreModal` **configurable ciego/abierto** (`settings.blind_count`, default ciego). Propina DIFERIDA (sin campo en el contrato)
+- **200 tests** + build de frontend limpio
+- **Pendiente del rediseño (pulido)**: restilizar a ModalPro los 4 modales reusados (Cliente, Efectivo, En espera, Producto desconocido); Devolución como modal; reubicar accesos a Transacciones recientes / Anular / Estado (no están en la toolbar nueva); aplicar cobalt a Login/Apertura
+
 ### 2026-06-08 — White-label: tema de marca por negocio (D26)
 
 - `settings.theme = { key, primary, primary_hi }` baja en el bootstrap. `lib/theme.ts`: `resolveTheme` (puro, tolera ausencia/hex inválido → default teal) + `applyTheme` que sobreescribe SOLO `--color-primary`/`--color-primary-hi` en `:root`
