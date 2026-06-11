@@ -2,10 +2,12 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
+import AnularVenta from "@/components/ui/AnularVenta.vue";
 import BuscadorCliente from "@/components/ui/BuscadorCliente.vue";
 import CatalogoPos from "@/components/ui/CatalogoPos.vue";
 import CierreModal from "@/components/ui/CierreModal.vue";
 import CobroModal from "@/components/ui/CobroModal.vue";
+import ConfiguracionImpresora from "@/components/ui/ConfiguracionImpresora.vue";
 import DescuentoGlobal from "@/components/ui/DescuentoGlobal.vue";
 import MontoLibre from "@/components/ui/MontoLibre.vue";
 import MovimientoEfectivo from "@/components/ui/MovimientoEfectivo.vue";
@@ -15,12 +17,16 @@ import TicketVenta from "@/components/ui/TicketVenta.vue";
 import ToastCaja from "@/components/ui/ToastCaja.vue";
 import ToolbarPos from "@/components/ui/ToolbarPos.vue";
 import TopbarPos from "@/components/ui/TopbarPos.vue";
+import TransaccionesRecientes from "@/components/ui/TransaccionesRecientes.vue";
 import VentasSuspendidas from "@/components/ui/VentasSuspendidas.vue";
 import { beep } from "@/lib/beep";
 import { peekTicketNumber } from "@/db/outbox";
 import { fromCents } from "@/lib/decimal";
 import { listDepartmentCounts, type DepartmentCount } from "@/services/product-lookup";
 import type { SaleCustomer, SaleLine } from "@/services/sale";
+import type { TransactionSummary } from "@/services/transactions";
+import { voidSale } from "@/services/void-sale";
+import type { UserRow } from "@/services/auth";
 import { useCashierStore } from "@/stores/cashier";
 import { useOutboxStore } from "@/stores/outbox";
 import { useSaleStore } from "@/stores/sale";
@@ -49,9 +55,13 @@ type Modal =
   | "cobro"
   | "descuento"
   | "montoLibre"
-  | "cierre";
+  | "cierre"
+  | "recientes"
+  | "anular"
+  | "impresora";
 const modal = ref<Modal>(null);
 const unknownCode = ref("");
+const ventaAAnular = ref<TransactionSummary | null>(null);
 
 const railDept = ref<number | null>(null);
 const railTotal = ref(0);
@@ -174,6 +184,36 @@ async function devolucion() {
   await router.push({ name: "devolucion" });
 }
 
+// Menú del avatar
+async function changeCashier() {
+  cashier.logout();
+  await router.replace({ name: "login" });
+}
+async function irAEstado() {
+  await router.push({ name: "estado" });
+}
+
+// Anulación desde Transacciones recientes
+function abrirAnular(t: TransactionSummary) {
+  ventaAAnular.value = t;
+  modal.value = "anular";
+}
+async function ejecutarAnulacion(reason: string, supervisor: UserRow) {
+  if (ventaAAnular.value === null) return;
+  const ticket = ventaAAnular.value.ticket_number;
+  modal.value = null;
+  try {
+    await voidSale(ventaAAnular.value.sale_ulid, reason, supervisor.id);
+    void outbox.drainNow();
+    await refrescarEfectivo();
+    ui.toast("exito", `Venta #${ticket} anulada.`);
+  } catch (e) {
+    ui.toast("error", e instanceof Error ? e.message : "No se pudo anular la venta.");
+  } finally {
+    ventaAAnular.value = null;
+  }
+}
+
 function descuento() {
   if (sale.isEmpty) {
     ui.toast("error", "Agrega productos antes de aplicar un descuento.");
@@ -215,7 +255,12 @@ const customerName = computed(() => sale.sale.customer?.name ?? null);
 
 <template>
   <div class="flex h-screen flex-col bg-bg">
-    <TopbarPos />
+    <TopbarPos
+      @recientes="modal = 'recientes'"
+      @estado="irAEstado"
+      @impresora="modal = 'impresora'"
+      @cambiar-cajero="changeCashier"
+    />
     <ToolbarPos
       :held-count="sale.suspendedCount"
       :drawer-cash="drawerCash"
@@ -262,6 +307,14 @@ const customerName = computed(() => sale.sale.customer?.name ?? null);
     <DescuentoGlobal v-if="modal === 'descuento'" @cerrar="modal = null" />
     <MontoLibre v-if="modal === 'montoLibre'" @agregar="onMontoLibre" @cerrar="modal = null" />
     <CierreModal v-if="modal === 'cierre'" @cerrada="cajaCerrada" @cerrar="modal = null" />
+    <TransaccionesRecientes v-if="modal === 'recientes'" @anular="abrirAnular" @cerrar="modal = null" />
+    <AnularVenta
+      v-if="modal === 'anular' && ventaAAnular"
+      :sale="ventaAAnular"
+      @anular="ejecutarAnulacion"
+      @cerrar="modal = null; ventaAAnular = null"
+    />
+    <ConfiguracionImpresora v-if="modal === 'impresora'" @cerrar="modal = null" />
 
     <!-- Modales reutilizados -->
     <BuscadorCliente v-if="modal === 'cliente'" @seleccionar="setCustomer" @cerrar="modal = null" />

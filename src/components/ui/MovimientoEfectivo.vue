@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
-import BotonAccion from "@/components/ui/BotonAccion.vue";
-import ModalBase from "@/components/ui/ModalBase.vue";
+import ModalPro from "@/components/ui/ModalPro.vue";
 import { formatMoney } from "@/lib/format";
 
 /**
@@ -60,46 +59,38 @@ function registrar() {
 </script>
 
 <template>
-  <ModalBase @cerrar="emit('cerrar')">
-    <div class="flex w-96 flex-col gap-4">
-      <h2 class="text-xl font-bold text-text">Movimiento de efectivo</h2>
-
-      <div class="flex flex-col gap-2">
-        <label v-for="t in TIPOS" :key="t.value" class="flex items-center gap-2 text-text">
-          <input v-model="tipo" type="radio" :value="t.value" class="accent-primary" />
-          {{ t.label }}
-        </label>
-      </div>
-
-      <label class="flex flex-col gap-1 text-sm font-medium text-text-dim">
-        Monto
-        <input
-          :value="formatMoney(amount)"
-          type="text"
-          inputmode="numeric"
-          class="monto h-12 rounded-lg border border-border bg-surface px-3 text-xl font-bold text-text outline-none focus:border-primary"
-          @keydown="onAmountKeydown"
-        />
+  <ModalPro title="Movimiento de efectivo" size="sm" @cerrar="emit('cerrar')">
+    <div class="flex flex-col gap-2">
+      <label v-for="t in TIPOS" :key="t.value" class="flex items-center gap-2 text-[13px] font-semibold">
+        <input v-model="tipo" type="radio" :value="t.value" class="h-4 w-4 accent-primary" />
+        {{ t.label }}
       </label>
-
-      <label class="flex flex-col gap-1 text-sm font-medium text-text-dim">
-        Motivo
-        <input
-          v-model="reason"
-          type="text"
-          maxlength="255"
-          placeholder="Ej.: depósito al banco"
-          class="h-12 rounded-lg border border-border bg-surface px-3 text-base text-text outline-none focus:border-primary"
-          @keydown.enter.prevent="registrar"
-        />
-      </label>
-
-      <p v-if="error" class="text-sm font-medium text-danger">{{ error }}</p>
-
-      <div class="flex justify-end gap-2">
-        <BotonAccion variante="secundario" @click="emit('cerrar')">Cancelar</BotonAccion>
-        <BotonAccion @click="registrar">Registrar</BotonAccion>
-      </div>
     </div>
-  </ModalBase>
+
+    <label class="mt-3.5 mb-1.5 block text-[12.5px] font-semibold">Monto</label>
+    <input
+      :value="formatMoney(amount)"
+      type="text"
+      inputmode="numeric"
+      class="monto h-11 w-full rounded-lg border border-border px-3 text-lg font-bold focus:border-primary focus:outline-none"
+      @keydown="onAmountKeydown"
+    />
+
+    <label class="mt-3.5 mb-1.5 block text-[12.5px] font-semibold">Motivo</label>
+    <input
+      v-model="reason"
+      type="text"
+      maxlength="255"
+      placeholder="Ej.: depósito al banco"
+      class="h-11 w-full rounded-lg border border-border px-3 text-sm focus:border-primary focus:outline-none"
+      @keydown.enter.prevent="registrar"
+    />
+
+    <p v-if="error" class="mt-2 text-sm font-medium text-danger">{{ error }}</p>
+
+    <template #footer>
+      <button type="button" tabindex="-1" class="h-[46px] flex-1 rounded-lg border border-border font-bold text-text-dim" @mousedown.prevent @click="emit('cerrar')">Cancelar</button>
+      <button type="button" tabindex="-1" class="h-[46px] flex-1 rounded-lg bg-primary font-bold text-white" @mousedown.prevent @click="registrar">Registrar</button>
+    </template>
+  </ModalPro>
 </template>

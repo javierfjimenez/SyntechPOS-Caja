@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 
-import BotonAccion from "@/components/ui/BotonAccion.vue";
-import ModalBase from "@/components/ui/ModalBase.vue";
+import ModalPro from "@/components/ui/ModalPro.vue";
 import { listDepartments, logUnknownCode, type DepartmentRow } from "@/services/product-lookup";
 import type { SaleLine } from "@/services/sale";
 import { useTerminalStore } from "@/stores/terminal";
@@ -62,48 +61,40 @@ function agregar() {
 </script>
 
 <template>
-  <ModalBase @cerrar="emit('cerrar')">
-    <div class="flex w-96 flex-col gap-4">
-      <h2 class="text-xl font-bold text-text">Producto no registrado</h2>
-      <p class="text-text-dim">
-        Código <span class="monto font-semibold text-text">{{ code }}</span> no está en el catálogo.
-      </p>
+  <ModalPro title="Producto no registrado" size="sm" @cerrar="emit('cerrar')">
+    <p class="text-[13px] text-text-dim">
+      Código <span class="monto font-semibold text-text">{{ code }}</span> no está en el catálogo.
+    </p>
 
-      <p v-if="!allowed" class="rounded-lg bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
-        La venta por departamento está desactivada para este negocio.
-        Pide al dueño activarla en el panel o registrar el producto.
-      </p>
+    <p v-if="!allowed" class="mt-3 rounded-lg bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
+      La venta por departamento está desactivada para este negocio.
+      Pide al dueño activarla en el panel o registrar el producto.
+    </p>
 
-      <label v-if="allowed" class="flex flex-col gap-1 text-sm font-medium text-text-dim">
-        Departamento
-        <select
-          v-model="departmentId"
-          class="h-12 rounded-lg border border-border bg-surface px-3 text-base text-text outline-none focus:border-primary"
-        >
-          <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
-        </select>
-      </label>
+    <template v-if="allowed">
+      <label class="mt-3.5 mb-1.5 block text-[12.5px] font-semibold">Departamento</label>
+      <select v-model="departmentId" class="h-11 w-full rounded-lg border border-border px-3 text-sm focus:border-primary focus:outline-none">
+        <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
+      </select>
 
-      <label v-if="allowed" class="flex flex-col gap-1 text-sm font-medium text-text-dim">
-        Precio
-        <input
-          v-model="price"
-          type="text"
-          inputmode="decimal"
-          placeholder="0.00"
-          class="monto h-12 rounded-lg border border-border bg-surface px-3 text-lg text-text outline-none focus:border-primary"
-          @keydown.enter.prevent="agregar"
-        />
-      </label>
+      <label class="mt-3.5 mb-1.5 block text-[12.5px] font-semibold">Precio</label>
+      <input
+        v-model="price"
+        type="text"
+        inputmode="decimal"
+        placeholder="0.00"
+        class="monto h-11 w-full rounded-lg border border-border px-3 text-lg focus:border-primary focus:outline-none"
+        @keydown.enter.prevent="agregar"
+      />
+    </template>
 
-      <p v-if="error" class="text-sm font-medium text-danger">{{ error }}</p>
+    <p v-if="error" class="mt-2 text-sm font-medium text-danger">{{ error }}</p>
 
-      <div class="flex justify-end gap-2">
-        <BotonAccion variante="secundario" @click="emit('cerrar')">Cancelar</BotonAccion>
-        <BotonAccion v-if="allowed" :disabled="departmentId === null" @click="agregar">
-          Venta por departamento
-        </BotonAccion>
-      </div>
-    </div>
-  </ModalBase>
+    <template #footer>
+      <button type="button" tabindex="-1" class="h-[46px] flex-1 rounded-lg border border-border font-bold text-text-dim" @mousedown.prevent @click="emit('cerrar')">Cancelar</button>
+      <button v-if="allowed" type="button" tabindex="-1" class="h-[46px] flex-1 rounded-lg bg-primary font-bold text-white disabled:opacity-50" :disabled="departmentId === null" @mousedown.prevent @click="agregar">
+        Venta por departamento
+      </button>
+    </template>
+  </ModalPro>
 </template>

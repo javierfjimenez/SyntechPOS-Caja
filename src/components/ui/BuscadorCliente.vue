@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 
-import BotonAccion from "@/components/ui/BotonAccion.vue";
-import ModalBase from "@/components/ui/ModalBase.vue";
+import ModalPro from "@/components/ui/ModalPro.vue";
 import { fromCents, toCents } from "@/lib/decimal";
 import { formatMoney } from "@/lib/format";
 import { searchCustomers, type CustomerRow } from "@/services/product-lookup";
@@ -80,77 +79,44 @@ function crearRapido() {
 </script>
 
 <template>
-  <ModalBase @cerrar="emit('cerrar')">
-    <div class="flex w-[28rem] flex-col gap-4">
-      <h2 class="text-xl font-bold text-text">Cliente</h2>
+  <ModalPro :title="creating ? 'Nuevo cliente' : 'Cliente'" @cerrar="emit('cerrar')">
+    <template v-if="!creating">
+      <input
+        v-model="term"
+        type="text"
+        placeholder="Buscar por nombre o RNC…"
+        class="mb-3.5 h-11 w-full rounded-lg border border-border px-3 text-sm focus:border-primary focus:outline-none"
+      />
 
+      <ul v-if="results.length > 0" class="max-h-64 divide-y divide-border overflow-y-auto rounded-lg border border-border">
+        <li v-for="c in results" :key="c.id" class="cursor-pointer px-3 py-2.5 hover:bg-zinc-100" @click="pick(c)">
+          <div class="flex items-center justify-between">
+            <span class="text-[13.5px] font-semibold">{{ c.name }}</span>
+            <span class="monto text-[13px] text-text-dim">{{ c.document_number }}</span>
+          </div>
+          <p v-if="moroso(c)" class="text-sm font-medium text-warning">⚠ Cliente con balance vencido</p>
+          <p v-else-if="disponible(c)" class="text-sm text-text-dim">Crédito disponible: <span class="monto">{{ disponible(c) }}</span></p>
+        </li>
+      </ul>
+      <p v-else-if="term.trim().length >= 2" class="py-2 text-center text-[13.5px] text-text-dim">Sin resultados para "{{ term }}"</p>
+    </template>
+
+    <template v-else>
+      <input v-model="newName" type="text" placeholder="Nombre completo o razón social" class="mb-2.5 h-11 w-full rounded-lg border border-border px-3 text-sm focus:border-primary focus:outline-none" />
+      <input v-model="newDocument" type="text" inputmode="numeric" placeholder="RNC (9) o cédula (11)" class="monto mb-2.5 h-11 w-full rounded-lg border border-border px-3 text-sm focus:border-primary focus:outline-none" />
+      <input v-model="newPhone" type="text" inputmode="tel" placeholder="Teléfono (opcional)" class="monto h-11 w-full rounded-lg border border-border px-3 text-sm focus:border-primary focus:outline-none" @keydown.enter.prevent="crearRapido" />
+      <p v-if="error" class="mt-2 text-sm font-medium text-danger">{{ error }}</p>
+    </template>
+
+    <template #footer>
       <template v-if="!creating">
-        <input
-          v-model="term"
-          type="text"
-          placeholder="Nombre, RNC o cédula…"
-          class="h-12 rounded-lg border border-border bg-surface px-3 text-base text-text outline-none focus:border-primary"
-        />
-
-        <ul v-if="results.length > 0" class="max-h-64 divide-y divide-border overflow-y-auto rounded-lg border border-border">
-          <li
-            v-for="c in results"
-            :key="c.id"
-            class="cursor-pointer px-3 py-2.5 hover:bg-bg"
-            @click="pick(c)"
-          >
-            <div class="flex items-center justify-between">
-              <span class="font-medium text-text">{{ c.name }}</span>
-              <span class="monto text-sm text-text-dim">{{ c.document_number }}</span>
-            </div>
-            <p v-if="moroso(c)" class="text-sm font-medium text-warning">
-              ⚠ Cliente con balance vencido
-            </p>
-            <p v-else-if="disponible(c)" class="text-sm text-text-dim">
-              Crédito disponible: <span class="monto">{{ disponible(c) }}</span>
-            </p>
-          </li>
-        </ul>
-        <p v-else-if="term.trim().length >= 2" class="py-2 text-center text-text-dim">
-          Sin resultados para "{{ term }}"
-        </p>
-
-        <div class="flex justify-between gap-2 border-t border-border pt-3">
-          <BotonAccion variante="secundario" @click="emit('seleccionar', null)">
-            Consumidor final
-          </BotonAccion>
-          <BotonAccion @click="creating = true">Crear rápido</BotonAccion>
-        </div>
+        <button type="button" tabindex="-1" class="h-[46px] flex-1 rounded-lg border border-border font-bold text-text-dim" @mousedown.prevent @click="emit('seleccionar', null)">Consumidor final</button>
+        <button type="button" tabindex="-1" class="h-[46px] flex-1 rounded-lg bg-primary font-bold text-white" @mousedown.prevent @click="creating = true">Nuevo cliente</button>
       </template>
-
       <template v-else>
-        <input
-          v-model="newName"
-          type="text"
-          placeholder="Nombre completo o razón social"
-          class="h-12 rounded-lg border border-border bg-surface px-3 text-base text-text outline-none focus:border-primary"
-        />
-        <input
-          v-model="newDocument"
-          type="text"
-          inputmode="numeric"
-          placeholder="RNC (9) o cédula (11)"
-          class="monto h-12 rounded-lg border border-border bg-surface px-3 text-base text-text outline-none focus:border-primary"
-        />
-        <input
-          v-model="newPhone"
-          type="text"
-          inputmode="tel"
-          placeholder="Teléfono (opcional)"
-          class="monto h-12 rounded-lg border border-border bg-surface px-3 text-base text-text outline-none focus:border-primary"
-          @keydown.enter.prevent="crearRapido"
-        />
-        <p v-if="error" class="text-sm font-medium text-danger">{{ error }}</p>
-        <div class="flex justify-end gap-2">
-          <BotonAccion variante="secundario" @click="creating = false">Volver</BotonAccion>
-          <BotonAccion @click="crearRapido">Usar este cliente</BotonAccion>
-        </div>
+        <button type="button" tabindex="-1" class="h-[46px] flex-1 rounded-lg border border-border font-bold text-text-dim" @mousedown.prevent @click="creating = false">Volver</button>
+        <button type="button" tabindex="-1" class="h-[46px] flex-1 rounded-lg bg-primary font-bold text-white" @mousedown.prevent @click="crearRapido">Usar este cliente</button>
       </template>
-    </div>
-  </ModalBase>
+    </template>
+  </ModalPro>
 </template>
