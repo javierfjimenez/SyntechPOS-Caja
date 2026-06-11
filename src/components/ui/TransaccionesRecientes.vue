@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 
-import BotonAccion from "@/components/ui/BotonAccion.vue";
-import ModalBase from "@/components/ui/ModalBase.vue";
+import ModalPro from "@/components/ui/ModalPro.vue";
 import { transactionEnvelopes } from "@/db/outbox";
 import { formatMoney, formatTime } from "@/lib/format";
 import { reprintStamped } from "@/services/reprint";
@@ -71,10 +70,8 @@ function onKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-  <ModalBase @cerrar="emit('cerrar')">
-    <div class="flex w-[34rem] flex-col gap-4" @keydown="onKeydown">
-      <h2 class="text-xl font-bold text-text">Transacciones del turno</h2>
-
+  <ModalPro title="Transacciones del turno" size="lg" @cerrar="emit('cerrar')">
+    <div @keydown="onKeydown">
       <ul v-if="list.length > 0" class="max-h-96 divide-y divide-border overflow-y-auto rounded-lg border border-border">
         <li
           v-for="(t, i) in list"
@@ -125,11 +122,11 @@ function onKeydown(e: KeyboardEvent) {
           </span>
         </li>
       </ul>
-      <p v-else class="py-6 text-center text-text-dim">Aún no hay ventas en este turno.</p>
-
-      <div class="flex justify-end">
-        <BotonAccion variante="secundario" @click="emit('cerrar')">Volver (ESC)</BotonAccion>
-      </div>
+      <p v-else class="py-6 text-center text-[13.5px] text-text-dim">Aún no hay ventas en este turno.</p>
     </div>
-  </ModalBase>
+
+    <template #footer>
+      <button type="button" tabindex="-1" class="h-[46px] flex-1 rounded-lg border border-border font-bold text-text-dim" @mousedown.prevent @click="emit('cerrar')">Volver (ESC)</button>
+    </template>
+  </ModalPro>
 </template>

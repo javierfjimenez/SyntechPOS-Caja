@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
-import BotonAccion from "@/components/ui/BotonAccion.vue";
-import ModalBase from "@/components/ui/ModalBase.vue";
+import ModalPro from "@/components/ui/ModalPro.vue";
 import PinAutorizacion from "@/components/ui/PinAutorizacion.vue";
 import { formatMoney } from "@/lib/format";
 import type { UserRow } from "@/services/auth";
@@ -49,42 +48,34 @@ void props;
 </script>
 
 <template>
-  <ModalBase v-if="!askingPin" @cerrar="emit('cerrar')">
-    <div class="flex w-96 flex-col gap-4">
-      <h2 class="text-xl font-bold text-text">Anular venta</h2>
-      <p class="text-text-dim">
-        Venta <span class="font-semibold text-text">#{{ sale.ticket_number }}</span> ·
-        <span class="monto font-semibold text-text">{{ formatMoney(sale.total) }}</span>
-      </p>
+  <ModalPro v-if="!askingPin" title="Anular venta" size="sm" @cerrar="emit('cerrar')">
+    <p class="text-[13px] text-text-dim">
+      Venta <span class="font-semibold text-text">#{{ sale.ticket_number }}</span> ·
+      <span class="monto font-semibold text-text">{{ formatMoney(sale.total) }}</span>
+    </p>
 
-      <label class="flex flex-col gap-1 text-sm font-medium text-text-dim">
-        Motivo
-        <select
-          v-model="motivo"
-          class="h-12 rounded-lg border border-border bg-surface px-3 text-base text-text outline-none focus:border-primary"
-        >
-          <option v-for="m in MOTIVOS" :key="m">{{ m }}</option>
-        </select>
-      </label>
+    <label class="mt-3.5 mb-1.5 block text-[12.5px] font-semibold">Motivo</label>
+    <select v-model="motivo" class="h-11 w-full rounded-lg border border-border px-3 text-sm focus:border-primary focus:outline-none">
+      <option v-for="m in MOTIVOS" :key="m">{{ m }}</option>
+    </select>
 
-      <input
-        v-if="motivo === 'Otro'"
-        v-model="detalle"
-        type="text"
-        maxlength="255"
-        placeholder="Describe el motivo"
-        class="h-12 rounded-lg border border-border bg-surface px-3 text-base text-text outline-none focus:border-primary"
-        @keydown.enter.prevent="continuar"
-      />
+    <input
+      v-if="motivo === 'Otro'"
+      v-model="detalle"
+      type="text"
+      maxlength="255"
+      placeholder="Describe el motivo"
+      class="mt-2.5 h-11 w-full rounded-lg border border-border px-3 text-sm focus:border-primary focus:outline-none"
+      @keydown.enter.prevent="continuar"
+    />
 
-      <p v-if="error" class="text-sm font-medium text-danger">{{ error }}</p>
+    <p v-if="error" class="mt-2 text-sm font-medium text-danger">{{ error }}</p>
 
-      <div class="flex justify-end gap-2">
-        <BotonAccion variante="secundario" @click="emit('cerrar')">Cancelar</BotonAccion>
-        <BotonAccion variante="peligro" @click="continuar">Continuar → PIN</BotonAccion>
-      </div>
-    </div>
-  </ModalBase>
+    <template #footer>
+      <button type="button" tabindex="-1" class="h-[46px] flex-1 rounded-lg border border-border font-bold text-text-dim" @mousedown.prevent @click="emit('cerrar')">Cancelar</button>
+      <button type="button" tabindex="-1" class="h-[46px] flex-1 rounded-lg bg-danger font-bold text-white" @mousedown.prevent @click="continuar">Continuar → PIN</button>
+    </template>
+  </ModalPro>
 
   <PinAutorizacion
     v-else

@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { invoke } from "@tauri-apps/api/core";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 import AnularVenta from "@/components/ui/AnularVenta.vue";
 import BuscadorCliente from "@/components/ui/BuscadorCliente.vue";
+import Calculadora from "@/components/ui/Calculadora.vue";
 import CatalogoPos from "@/components/ui/CatalogoPos.vue";
 import CierreModal from "@/components/ui/CierreModal.vue";
 import CobroModal from "@/components/ui/CobroModal.vue";
@@ -58,7 +60,8 @@ type Modal =
   | "cierre"
   | "recientes"
   | "anular"
-  | "impresora";
+  | "impresora"
+  | "calculadora";
 const modal = ref<Modal>(null);
 const unknownCode = ref("");
 const ventaAAnular = ref<TransactionSummary | null>(null);
@@ -192,6 +195,13 @@ async function changeCashier() {
 async function irAEstado() {
   await router.push({ name: "estado" });
 }
+async function pantallaCompleta() {
+  try {
+    await invoke("toggle_fullscreen");
+  } catch {
+    // entorno no-Tauri: sin efecto
+  }
+}
 
 // Anulación desde Transacciones recientes
 function abrirAnular(t: TransactionSummary) {
@@ -241,6 +251,7 @@ function onFnKeys(e: KeyboardEvent) {
     F7: () => (modal.value = "movimiento"),
     F8: () => void irACierre(),
     F9: montoLibre,
+    F11: () => void pantallaCompleta(),
     F12: cobrar,
   };
   const fn = map[e.key];
@@ -259,6 +270,8 @@ const customerName = computed(() => sale.sale.customer?.name ?? null);
       @recientes="modal = 'recientes'"
       @estado="irAEstado"
       @impresora="modal = 'impresora'"
+      @calculadora="modal = 'calculadora'"
+      @pantalla-completa="pantallaCompleta"
       @cambiar-cajero="changeCashier"
     />
     <ToolbarPos
@@ -315,6 +328,7 @@ const customerName = computed(() => sale.sale.customer?.name ?? null);
       @cerrar="modal = null; ventaAAnular = null"
     />
     <ConfiguracionImpresora v-if="modal === 'impresora'" @cerrar="modal = null" />
+    <Calculadora v-if="modal === 'calculadora'" @cerrar="modal = null" />
 
     <!-- Modales reutilizados -->
     <BuscadorCliente v-if="modal === 'cliente'" @seleccionar="setCustomer" @cerrar="modal = null" />

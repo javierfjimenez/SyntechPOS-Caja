@@ -15,6 +15,8 @@ const emit = defineEmits<{
   recientes: [];
   estado: [];
   impresora: [];
+  calculadora: [];
+  pantallaCompleta: [];
   cambiarCajero: [];
 }>();
 
@@ -23,11 +25,14 @@ const cashier = useCashierStore();
 const outbox = useOutboxStore();
 
 const menuOpen = ref(false);
-function elegir(accion: "recientes" | "estado" | "impresora" | "cambiarCajero") {
+type Accion = "recientes" | "estado" | "impresora" | "calculadora" | "pantallaCompleta" | "cambiarCajero";
+function elegir(accion: Accion) {
   menuOpen.value = false;
   if (accion === "recientes") emit("recientes");
   else if (accion === "estado") emit("estado");
   else if (accion === "impresora") emit("impresora");
+  else if (accion === "calculadora") emit("calculadora");
+  else if (accion === "pantallaCompleta") emit("pantallaCompleta");
   else emit("cambiarCajero");
 }
 
@@ -123,6 +128,14 @@ const iniciales = computed(() => {
           <button type="button" tabindex="-1" class="av-item" @mousedown.prevent @click="elegir('estado')">
             <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M2.25 13.5a8.25 8.25 0 0 1 8.25-8.25.75.75 0 0 1 .75.75v6.75H18a.75.75 0 0 1 .75.75 8.25 8.25 0 0 1-16.5 0Z" clip-rule="evenodd" /><path fill-rule="evenodd" d="M12.75 3a.75.75 0 0 1 .75-.75 8.25 8.25 0 0 1 8.25 8.25.75.75 0 0 1-.75.75h-7.5a.75.75 0 0 1-.75-.75V3Z" clip-rule="evenodd" /></svg>
             Estado de la caja
+          </button>
+          <button type="button" tabindex="-1" class="av-item" @mousedown.prevent @click="elegir('calculadora')">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M6 2.25A2.25 2.25 0 0 0 3.75 4.5v15A2.25 2.25 0 0 0 6 21.75h12A2.25 2.25 0 0 0 20.25 19.5v-15A2.25 2.25 0 0 0 18 2.25H6Zm1.5 3a.75.75 0 0 0-.75.75v.75c0 .414.336.75.75.75h9a.75.75 0 0 0 .75-.75V6a.75.75 0 0 0-.75-.75h-9Zm0 5.25a.75.75 0 0 0 0 1.5h.008a.75.75 0 0 0 0-1.5H7.5Zm3.75 0a.75.75 0 0 0 0 1.5h.008a.75.75 0 0 0 0-1.5h-.008Z" clip-rule="evenodd" /></svg>
+            Calculadora
+          </button>
+          <button type="button" tabindex="-1" class="av-item" @mousedown.prevent @click="elegir('pantallaCompleta')">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M3.22 3.22a.75.75 0 0 1 1.06 0l3.97 3.97V4.5a.75.75 0 0 1 1.5 0V9a.75.75 0 0 1-.75.75H4.5a.75.75 0 0 1 0-1.5h2.69L3.22 4.28a.75.75 0 0 1 0-1.06Zm17.56 0a.75.75 0 0 1 0 1.06l-3.97 3.97h2.69a.75.75 0 0 1 0 1.5H15a.75.75 0 0 1-.75-.75V4.5a.75.75 0 0 1 1.5 0v2.69l3.97-3.97a.75.75 0 0 1 1.06 0ZM3.75 15a.75.75 0 0 1 .75-.75H9a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-2.69l-3.97 3.97a.75.75 0 0 1-1.06-1.06l3.97-3.97H4.5a.75.75 0 0 1-.75-.75Zm10.5 0a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5h-2.69l3.97 3.97a.75.75 0 1 1-1.06 1.06l-3.97-3.97v2.69a.75.75 0 0 1-1.5 0V15Z" clip-rule="evenodd" /></svg>
+            Pantalla completa
           </button>
           <button type="button" tabindex="-1" class="av-item" @mousedown.prevent @click="elegir('impresora')">
             <svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M7.875 1.5C6.839 1.5 6 2.34 6 3.375v2.99c-.426.053-.851.11-1.274.174-1.454.218-2.476 1.483-2.476 2.917v6.294a3 3 0 0 0 3 3h.27l-.155 1.705A1.875 1.875 0 0 0 7.232 22.5h9.536a1.875 1.875 0 0 0 1.867-2.045l-.155-1.705h.27a3 3 0 0 0 3-3V9.456c0-1.434-1.022-2.7-2.476-2.917A48.716 48.716 0 0 0 18 6.366V3.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM16.5 6.205v-2.83A.375.375 0 0 0 16.125 3h-8.25a.375.375 0 0 0-.375.375v2.83a49.353 49.353 0 0 1 9 0Z" clip-rule="evenodd" /></svg>
