@@ -65,6 +65,29 @@ export function cashPayment(total: string, tendered: string): PaymentDraft {
   };
 }
 
+/**
+ * Recalcula un pago al editar su monto. `typed` es lo que tecleó la cajera:
+ * para EFECTIVO = lo RECIBIDO (puede exceder lo que falta → genera vuelta);
+ * para los demás métodos = lo aplicado. `needBefore` = total − suma de los
+ * OTROS pagos ya aplicados (lo que falta cubrir sin contar esta línea).
+ *
+ * Invariantes: el aplicado (`amount`) nunca excede lo que falta cubrir; el
+ * efectivo guarda lo recibido en `amount_tendered` para calcular la vuelta.
+ * Así un "recibido 2000" sobre una venta de 1500 aplica 1500 y devuelve 500.
+ */
+export function recomputePayment(method: MethodCode, typed: string, needBefore: string): PaymentDraft {
+  const need = toCents(needBefore);
+  const cap = need > 0n ? need : 0n;
+  const tendered = toCents(typed);
+  const applied = tendered > cap ? cap : tendered;
+  return {
+    method_code: method,
+    amount: fromCents(applied),
+    amount_tendered: method === "cash" ? typed : null,
+    reference: null,
+  };
+}
+
 /** Crédito disponible del cliente: límite − balance (puede ser negativo) */
 export function availableCredit(creditLimit: string, creditBalance: string): string {
   return fromCents(toCents(creditLimit) - toCents(creditBalance));

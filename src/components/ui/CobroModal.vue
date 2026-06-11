@@ -6,7 +6,7 @@ import PinAutorizacion from "@/components/ui/PinAutorizacion.vue";
 import { getMeta } from "@/db";
 import { enqueue, nextTicketNumber } from "@/db/outbox";
 import { toIsoWithOffset } from "@/lib/datetime";
-import { toCents } from "@/lib/decimal";
+import { fromCents, toCents } from "@/lib/decimal";
 import { formatMoney } from "@/lib/format";
 import { ulid } from "@/lib/ulid";
 import { buildEnvelope } from "@/services/event-signing";
@@ -16,6 +16,7 @@ import {
   changeDue,
   exceedsCredit,
   isCreditSale,
+  recomputePayment,
   remaining,
   type MethodCode,
   type PaymentDraft,
@@ -112,8 +113,15 @@ function editarPago(i: number, e: Event) {
   const raw = (e.target as HTMLInputElement).value.replace(/[^0-9.]/g, "");
   const p = payments.value[i];
   if (p === undefined) return;
-  p.amount = raw === "" || Number.isNaN(Number(raw)) ? "0.00" : Number(raw).toFixed(2);
-  if (p.method_code === "cash") p.amount_tendered = p.amount;
+  const typed = raw === "" || Number.isNaN(Number(raw)) ? "0.00" : Number(raw).toFixed(2);
+  // lo que falta cubrir SIN esta línea: el aplicado se topa ahí; el efectivo
+  // recibido por encima se convierte en vuelta (no infla el monto del evento).
+  let otros = 0n;
+  payments.value.forEach((q, j) => {
+    if (j !== i) otros += toCents(q.amount);
+  });
+  const needBefore = fromCents(toCents(total.value) - otros);
+  payments.value[i] = recomputePayment(p.method_code, typed, needBefore);
 }
 function quitarPago(i: number) {
   payments.value.splice(i, 1);
@@ -241,7 +249,7 @@ void isCreditSale; // disponible para reglas futuras
             </span>
             <input
               class="monto h-[34px] w-[110px] rounded-md border border-border px-2.5 text-right text-[13.5px] font-semibold focus:border-primary focus:outline-none"
-              :value="Number(p.amount).toFixed(2)"
+              :value="Number(p.amount_tendered ?? p.amount).toFixed(2)"
               @change="editarPago(i, $event)"
             />
             <button type="button" tabindex="-1" aria-label="Quitar" class="grid h-[26px] w-[26px] place-items-center rounded-md text-faint hover:bg-danger/10 hover:text-danger" @mousedown.prevent @click="quitarPago(i)">
