@@ -13,6 +13,7 @@ import ConfiguracionImpresora from "@/components/ui/ConfiguracionImpresora.vue";
 import DescuentoGlobal from "@/components/ui/DescuentoGlobal.vue";
 import MontoLibre from "@/components/ui/MontoLibre.vue";
 import MovimientoEfectivo from "@/components/ui/MovimientoEfectivo.vue";
+import Preferencias from "@/components/ui/Preferencias.vue";
 import ProductoDesconocido from "@/components/ui/ProductoDesconocido.vue";
 import RailCategorias from "@/components/ui/RailCategorias.vue";
 import TicketVenta from "@/components/ui/TicketVenta.vue";
@@ -21,7 +22,7 @@ import ToolbarPos from "@/components/ui/ToolbarPos.vue";
 import TopbarPos from "@/components/ui/TopbarPos.vue";
 import TransaccionesRecientes from "@/components/ui/TransaccionesRecientes.vue";
 import VentasSuspendidas from "@/components/ui/VentasSuspendidas.vue";
-import { beep } from "@/lib/beep";
+import { soundError } from "@/lib/sounds";
 import { peekTicketNumber } from "@/db/outbox";
 import { fromCents } from "@/lib/decimal";
 import { listDepartmentCounts, type DepartmentCount } from "@/services/product-lookup";
@@ -61,7 +62,8 @@ type Modal =
   | "recientes"
   | "anular"
   | "impresora"
-  | "calculadora";
+  | "calculadora"
+  | "preferencias";
 const modal = ref<Modal>(null);
 const unknownCode = ref("");
 const ventaAAnular = ref<TransactionSummary | null>(null);
@@ -103,7 +105,7 @@ async function refrescarEfectivo() {
 
 // ── Catálogo ──────────────────────────────────────────────────────────────────
 function onDesconocido(code: string) {
-  beep();
+  soundError();
   unknownCode.value = code;
   modal.value = "desconocido";
 }
@@ -271,6 +273,7 @@ const customerName = computed(() => sale.sale.customer?.name ?? null);
       @estado="irAEstado"
       @impresora="modal = 'impresora'"
       @calculadora="modal = 'calculadora'"
+      @preferencias="modal = 'preferencias'"
       @pantalla-completa="pantallaCompleta"
       @cambiar-cajero="changeCashier"
     />
@@ -329,6 +332,7 @@ const customerName = computed(() => sale.sale.customer?.name ?? null);
     />
     <ConfiguracionImpresora v-if="modal === 'impresora'" @cerrar="modal = null" />
     <Calculadora v-if="modal === 'calculadora'" @cerrar="modal = null" />
+    <Preferencias v-if="modal === 'preferencias'" @cerrar="modal = null" />
 
     <!-- Modales reutilizados -->
     <BuscadorCliente v-if="modal === 'cliente'" @seleccionar="setCustomer" @cerrar="modal = null" />

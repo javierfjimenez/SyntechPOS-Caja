@@ -66,6 +66,13 @@
 
 ## Bitácora
 
+### 2026-06-13 — Cobro: vuelta correcta + UX del input; sonidos de caja
+
+- **Fix de la vuelta (cobro)**: el input de efectivo es lo RECIBIDO; el monto aplicado se topa en lo que falta y el sobrante es vuelta. Antes `editarPago` igualaba `amount_tendered = amount` → vuelta 0 y monto inflado en el evento. Nuevo helper puro `recomputePayment` + tests (exacto/sobre/parcial/mixto/tarjeta)
+- **UX del modal de cobro**: abre con una línea de efectivo lista, su input ENFOCADO (ModalBase lo toma como primer focusable) y VACÍO con placeholder `0.00` (teclear el recibido sin borrar). Las líneas en cero se descartan al confirmar (efectivo intacto si se pagó todo con tarjeta)
+- **Sonidos de caja** (`src/lib/sounds.ts`, WebAudio sin assets): agregar (blip agudo), quitar (grave), error (doble beep), éxito de cobro (arpegio). Centralizados en el store `sale` (no suenan en restore/recover de crash). Reemplaza el viejo `beep.ts`. **Configurable**: preferencia LOCAL `soundsEnabled` (default ON) en el store `terminal` + modal **Preferencias** (menú del avatar) con toggle. Tests con AudioContext falso (toggle, conteo de tonos, no-throw sin WebAudio)
+- **212 tests** (211 pass + 1 skip) + typecheck + build limpios
+
 ### 2026-06-09 — Rediseño "Caja PRO" (mockup cobalt) — Fase 1 + Fase 2 núcleo
 
 - **Referencia**: `tema/syntechpos-cobalt-pos-pro_1.html` (prototipo del dueño). Replicado, sin copiar código de terceros

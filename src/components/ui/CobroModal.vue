@@ -8,6 +8,7 @@ import { enqueue, nextTicketNumber } from "@/db/outbox";
 import { toIsoWithOffset } from "@/lib/datetime";
 import { fromCents, toCents } from "@/lib/decimal";
 import { formatMoney } from "@/lib/format";
+import { soundSuccess } from "@/lib/sounds";
 import { ulid } from "@/lib/ulid";
 import { buildEnvelope } from "@/services/event-signing";
 import {
@@ -208,6 +209,7 @@ async function confirmar() {
     void printSaleTicket(ticket, hayEfectivo).catch((e: unknown) =>
       ui.toast("error", `Ticket pendiente de imprimir: ${e instanceof Error ? e.message : e}`),
     );
+    soundSuccess();
     exito.value = resumen; // pasa a la pantalla de éxito
     emit("completada");
   } catch (e) {

@@ -5,6 +5,7 @@ import { DEFAULT_API_URL } from "@/api/client";
 import { getBootstrap } from "@/api/sync";
 import { linkTerminal, ping } from "@/api/terminals";
 import { getMetaMany, setMeta } from "@/db";
+import { setSoundsEnabled } from "@/lib/sounds";
 import { applyTheme, resolveTheme } from "@/lib/theme";
 import { updateRequired } from "@/lib/version";
 
@@ -27,6 +28,7 @@ interface TerminalState {
   allowDepartmentSale: boolean;
   ecfEnabled: boolean; // D21: facturación electrónica opcional por negocio
   blindCount: boolean; // arqueo ciego (no muestra el esperado antes de contar)
+  soundsEnabled: boolean; // sonidos de caja (preferencia LOCAL por terminal)
   /** 401/403 del servidor: terminal desvinculada — flujo de re-vinculación pendiente */
   revoked: boolean;
   /** 4.12/D14: la app está por debajo de min_client_version (vender SIGUE permitido) */
@@ -49,6 +51,7 @@ const META_KEYS = [
   "setting_allow_department_sale",
   "setting_ecf_enabled",
   "setting_blind_count",
+  "setting_sounds_enabled",
   "theme_primary",
   "theme_primary_hi",
 ];
@@ -66,6 +69,7 @@ export const useTerminalStore = defineStore("terminal", {
     allowDepartmentSale: true,
     ecfEnabled: false, // conservador: sin QR hasta que el bootstrap diga lo contrario
     blindCount: true, // seguro por defecto: arqueo ciego
+    soundsEnabled: true, // sonidos ON por defecto
     revoked: false,
     updateRequired: false,
     lastServerContact: null,
@@ -89,10 +93,19 @@ export const useTerminalStore = defineStore("terminal", {
       this.allowDepartmentSale = meta.setting_allow_department_sale !== "0";
       this.ecfEnabled = meta.setting_ecf_enabled === "1";
       this.blindCount = meta.setting_blind_count !== "0"; // ciego salvo que diga 0
+      this.soundsEnabled = meta.setting_sounds_enabled !== "0"; // ON salvo que diga 0
+      setSoundsEnabled(this.soundsEnabled);
       // Tema white-label (D26): aplicar el guardado al arrancar (offline)
       applyTheme(resolveTheme({ primary: meta.theme_primary, primary_hi: meta.theme_primary_hi }));
       this.linked = this.token !== null;
       this.loaded = true;
+    },
+
+    /** Activa/desactiva los sonidos de caja (preferencia local, persiste) */
+    async setSounds(on: boolean) {
+      this.soundsEnabled = on;
+      setSoundsEnabled(on);
+      await setMeta("setting_sounds_enabled", on ? "1" : "0");
     },
 
     /** Pantalla 1: valida el código y persiste credenciales + datos del ticket */

@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 
 import { getDb } from "@/db";
 import { fromMilli, mulPriceQty, toCents, toMilli } from "@/lib/decimal";
+import { soundAdd, soundRemove } from "@/lib/sounds";
 import {
   computeTotals,
   distributeDiscount,
@@ -109,6 +110,7 @@ export const useSaleStore = defineStore("sale", {
         this.sale.lines.push({ ...line, quantity });
         this.selectedIndex = this.sale.lines.length - 1;
       }
+      soundAdd();
       await this.persist();
     },
 
@@ -158,6 +160,7 @@ export const useSaleStore = defineStore("sale", {
       if (line === undefined || line.is_weighable) return;
       line.quantity = fromMilli(toMilli(line.quantity) + 1000n);
       this.selectedIndex = index;
+      soundAdd();
       await this.persist();
     },
 
@@ -173,6 +176,7 @@ export const useSaleStore = defineStore("sale", {
         line.quantity = fromMilli(next);
         this.selectedIndex = index;
       }
+      soundRemove();
       await this.persist();
     },
 
@@ -187,6 +191,7 @@ export const useSaleStore = defineStore("sale", {
       if (index < 0 || index >= this.sale.lines.length) return;
       this.sale.lines.splice(index, 1);
       this.selectedIndex = Math.min(this.selectedIndex, this.sale.lines.length - 1);
+      soundRemove();
       await this.persist();
     },
 
