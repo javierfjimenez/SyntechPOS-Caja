@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, ref } from "vue";
 
 import ModalBase from "@/components/ui/ModalBase.vue";
 import PinAutorizacion from "@/components/ui/PinAutorizacion.vue";
@@ -47,8 +47,29 @@ const terminal = useTerminalStore();
 const outbox = useOutboxStore();
 const ui = useUiStore();
 
-const payments = ref<PaymentDraft[]>([]);
+/** Línea de efectivo vacía: el input arranca en blanco (placeholder 0.00). */
+function efectivoVacio(): PaymentDraft {
+  return { method_code: "cash", amount: "0.00", amount_tendered: null, reference: null };
+}
+
+// Arranca con una línea de efectivo (el método del 90%): ModalBase enfoca su
+// input al abrir, así la cajera teclea el recibido sin borrar nada.
+const payments = ref<PaymentDraft[]>([efectivoVacio()]);
+const pagoInputs = ref<HTMLInputElement[]>([]);
 const confirming = ref(false);
+
+/** Monto a mostrar en el input: vacío si es 0 → aparece el placeholder 0.00. */
+function montoInput(p: PaymentDraft): string {
+  const v = p.amount_tendered ?? p.amount;
+  return toCents(v) === 0n ? "" : Number(v).toFixed(2);
+}
+
+async function enfocarPago(i: number) {
+  await nextTick();
+  const el = pagoInputs.value[i];
+  el?.focus();
+  el?.select();
+}
 const pinCredito = ref<{ amount: string; available: string } | null>(null);
 
 // pantalla de éxito
@@ -79,12 +100,14 @@ async function agregarMetodo(code: MethodCode) {
     await agregarCredito(restante);
     return;
   }
-  payments.value.push({
-    method_code: code,
-    amount: restante,
-    amount_tendered: code === "cash" ? restante : null,
-    reference: null,
-  });
+  if (code === "cash") {
+    // efectivo: vacío + foco para teclear el recibido directo
+    payments.value.push(efectivoVacio());
+    await enfocarPago(payments.value.length - 1);
+    return;
+  }
+  // tarjeta/transferencia: pre-rellena el restante (se cobra el monto exacto)
+  payments.value.push({ method_code: code, amount: restante, amount_tendered: null, reference: null });
 }
 
 async function agregarCredito(monto: string) {
@@ -135,11 +158,17 @@ async function confirmar() {
     const secret = await getMeta("hmac_secret");
     if (secret === null) throw new Error("Terminal sin hmac_secret.");
 
+    // descarta líneas intactas en cero (p. ej. el efectivo por defecto si
+    // al final se pagó todo con tarjeta)
+    const finalPayments = payments.value.filter(
+      (p) => toCents(p.amount) > 0n || toCents(p.amount_tendered ?? "0.00") > 0n,
+    );
+
     const ticketNumber = await nextTicketNumber();
     const occurredAt = new Date();
     const payload = buildSaleCompletedPayload({
       sale: sale.sale,
-      payments: payments.value,
+      payments: finalPayments,
       saleUlid: ulid(),
       ticketNumber,
       cashSessionUlid: session.ulid,
@@ -167,12 +196,12 @@ async function confirmar() {
       customer_document: sale.sale.customer?.document_number ?? null,
       lines: [...sale.sale.lines],
       totals: sale.totals,
-      payments: [...payments.value],
+      payments: finalPayments,
       change: cambio.value,
       ecf_enabled: terminal.ecfEnabled,
       ecf: null,
     };
-    const hayEfectivo = payments.value.some((p) => p.method_code === "cash");
+    const hayEfectivo = finalPayments.some((p) => p.method_code === "cash");
     const resumen = { ticket: ticketNumber, total: total.value, pagado: sumPagos(), cambio: cambio.value };
 
     await sale.clear();
@@ -248,8 +277,11 @@ void isCreditSale; // disponible para reglas futuras
               {{ { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia", credit: "Crédito" }[p.method_code] }}
             </span>
             <input
-              class="monto h-[34px] w-[110px] rounded-md border border-border px-2.5 text-right text-[13.5px] font-semibold focus:border-primary focus:outline-none"
-              :value="Number(p.amount_tendered ?? p.amount).toFixed(2)"
+              ref="pagoInputs"
+              inputmode="decimal"
+              placeholder="0.00"
+              class="monto h-[34px] w-[110px] rounded-md border border-border px-2.5 text-right text-[13.5px] font-semibold placeholder:text-faint focus:border-primary focus:outline-none"
+              :value="montoInput(p)"
               @change="editarPago(i, $event)"
             />
             <button type="button" tabindex="-1" aria-label="Quitar" class="grid h-[26px] w-[26px] place-items-center rounded-md text-faint hover:bg-danger/10 hover:text-danger" @mousedown.prevent @click="quitarPago(i)">
