@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 
 import ModalBase from "@/components/ui/ModalBase.vue";
 import PinAutorizacion from "@/components/ui/PinAutorizacion.vue";
@@ -71,6 +71,10 @@ async function enfocarPago(i: number) {
   el?.focus();
   el?.select();
 }
+
+// ModalBase enfoca su primer focusable (que resulta ser la X de cerrar); aquí
+// forzamos el foco al input del efectivo para teclear el recibido sin click.
+onMounted(() => void enfocarPago(0));
 const pinCredito = ref<{ amount: string; available: string } | null>(null);
 
 // pantalla de éxito
