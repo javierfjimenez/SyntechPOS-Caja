@@ -145,13 +145,20 @@ export async function listBrands(): Promise<BrandRow[]> {
   return db.select<BrandRow[]>("SELECT id, name FROM brands WHERE is_active = 1 ORDER BY name");
 }
 
+/** Tamaño de página del grid: se cargan de a tantos tiles y se piden más al
+ * hacer scroll (un catálogo de 10k SKUs no cabe ni se debe traer de golpe). */
+export const GRID_PAGE_SIZE = 60;
+
 /**
  * Productos para el grid (D24): filtrables por departamento, marca o texto
  * (nombre/SKU). Sin filtro = todos los activos. Orden por nombre.
+ * Paginado por `offset` (scroll infinito): pedir `GRID_PAGE_SIZE + 1` y dejar
+ * que el llamador sepa si hay más por el largo del resultado.
  */
 export async function listProductsForGrid(
   filter: { departmentId?: number; brandId?: number; term?: string } = {},
-  limit = 500,
+  limit = GRID_PAGE_SIZE,
+  offset = 0,
 ): Promise<ProductRow[]> {
   const db = await getDb();
   const where: string[] = ["p.is_active = 1"];
@@ -171,8 +178,11 @@ export async function listProductsForGrid(
     where.push(`(p.name LIKE $${i} OR p.sku LIKE $${i})`);
   }
   params.push(limit);
+  const limitIdx = params.length;
+  params.push(offset);
+  const offsetIdx = params.length;
   return db.select<ProductRow[]>(
-    `SELECT ${PRODUCT_FIELDS} FROM products p WHERE ${where.join(" AND ")} ORDER BY p.name LIMIT $${params.length}`,
+    `SELECT ${PRODUCT_FIELDS} FROM products p WHERE ${where.join(" AND ")} ORDER BY p.name LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
     params,
   );
 }

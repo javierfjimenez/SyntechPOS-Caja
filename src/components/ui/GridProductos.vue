@@ -10,6 +10,7 @@ import { formatMoney } from "@/lib/format";
 import { focusScan } from "@/lib/scan-focus";
 import {
   expectedScaleTotal,
+  GRID_PAGE_SIZE,
   listBrands,
   listDepartments,
   listProductsForGrid,
@@ -39,6 +40,12 @@ const filtro = ref<{ kind: "todos" } | { kind: "dep"; id: number } | { kind: "ma
 });
 const term = ref("");
 const cargando = ref(false);
+const scroller = ref<HTMLElement | null>(null);
+
+// scroll infinito: una página por vez, más al llegar al fondo
+const hayMas = ref(false);
+const cargandoMas = ref(false);
+let offset = 0;
 
 // Pesaje: tile pesable clickeado → pedir peso antes de agregar (modal)
 const pesando = ref<ProductRow | null>(null);
@@ -60,19 +67,48 @@ watch(term, () => {
   searchTimer = setTimeout(cargar, 150);
 });
 
+function filtroActual() {
+  const base =
+    filtro.value.kind === "dep"
+      ? { departmentId: filtro.value.id }
+      : filtro.value.kind === "marca"
+        ? { brandId: filtro.value.id }
+        : {};
+  return { ...base, term: term.value };
+}
+
+/** Primera página del filtro actual (reinicia el scroll) */
 async function cargar() {
   cargando.value = true;
   try {
-    const base =
-      filtro.value.kind === "dep"
-        ? { departmentId: filtro.value.id }
-        : filtro.value.kind === "marca"
-          ? { brandId: filtro.value.id }
-          : {};
-    products.value = await listProductsForGrid({ ...base, term: term.value });
+    const page = await listProductsForGrid(filtroActual(), GRID_PAGE_SIZE, 0);
+    products.value = page;
+    offset = page.length;
+    hayMas.value = page.length === GRID_PAGE_SIZE;
+    scroller.value?.scrollTo({ top: 0 });
   } finally {
     cargando.value = false;
   }
+}
+
+/** Siguiente página: acumula al final (scroll infinito) */
+async function cargarMas() {
+  if (!hayMas.value || cargandoMas.value) return;
+  cargandoMas.value = true;
+  try {
+    const page = await listProductsForGrid(filtroActual(), GRID_PAGE_SIZE, offset);
+    products.value.push(...page);
+    offset += page.length;
+    hayMas.value = page.length === GRID_PAGE_SIZE;
+  } finally {
+    cargandoMas.value = false;
+  }
+}
+
+function onScroll() {
+  const el = scroller.value;
+  if (el === null) return;
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 240) void cargarMas();
 }
 
 /** "2.000" → 2 (oculta decimales de relleno) para el badge */
@@ -193,7 +229,7 @@ function onPesoKeydown(e: KeyboardEvent) {
     </div>
 
     <!-- Rejilla de tiles (siempre visible; se adapta al ancho) -->
-    <div class="grid min-h-0 flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 overflow-y-auto pr-1">
+    <div ref="scroller" class="grid min-h-0 flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 overflow-y-auto pr-1" @scroll.passive="onScroll">
       <button
         v-for="p in products"
         :key="p.id"
@@ -247,6 +283,7 @@ function onPesoKeydown(e: KeyboardEvent) {
       <p v-if="!cargando && products.length === 0" class="col-span-full py-10 text-center text-text-dim">
         No hay productos en este filtro.
       </p>
+      <p v-else-if="cargandoMas" class="col-span-full py-4 text-center text-xs text-text-dim">Cargando más…</p>
     </div>
   </aside>
 

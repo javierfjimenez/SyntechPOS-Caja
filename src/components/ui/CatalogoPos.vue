@@ -10,6 +10,7 @@ import { editableFocused, focusScan, registerScanFocus } from "@/lib/scan-focus"
 import {
   expectedScaleTotal,
   findByCode,
+  GRID_PAGE_SIZE,
   listProductsForGrid,
   productToLine,
   scaleToLine,
@@ -37,6 +38,12 @@ const ui = useUiStore();
 const input = ref<HTMLInputElement | null>(null);
 const term = ref("");
 const products = ref<ProductRow[]>([]);
+const scroller = ref<HTMLElement | null>(null);
+
+// scroll infinito: se trae una página y se piden más al llegar al fondo
+const hayMas = ref(false);
+const cargandoMas = ref(false);
+let offset = 0;
 
 // pesaje
 const pesando = ref<ProductRow | null>(null);
@@ -48,11 +55,37 @@ watch([() => props.departmentId, term], () => {
   searchTimer = setTimeout(cargar, 120);
 });
 
+function filtroActual() {
+  return { departmentId: props.departmentId ?? undefined, term: term.value };
+}
+
+/** Primera página del filtro actual (reinicia el scroll) */
 async function cargar() {
-  products.value = await listProductsForGrid({
-    departmentId: props.departmentId ?? undefined,
-    term: term.value,
-  });
+  const page = await listProductsForGrid(filtroActual(), GRID_PAGE_SIZE, 0);
+  products.value = page;
+  offset = page.length;
+  hayMas.value = page.length === GRID_PAGE_SIZE;
+  scroller.value?.scrollTo({ top: 0 });
+}
+
+/** Siguiente página: acumula al final (scroll infinito) */
+async function cargarMas() {
+  if (!hayMas.value || cargandoMas.value) return;
+  cargandoMas.value = true;
+  try {
+    const page = await listProductsForGrid(filtroActual(), GRID_PAGE_SIZE, offset);
+    products.value.push(...page);
+    offset += page.length;
+    hayMas.value = page.length === GRID_PAGE_SIZE;
+  } finally {
+    cargandoMas.value = false;
+  }
+}
+
+function onScroll() {
+  const el = scroller.value;
+  if (el === null) return;
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 240) void cargarMas();
 }
 
 onMounted(async () => {
@@ -206,7 +239,7 @@ async function confirmarPeso() {
     </div>
 
     <!-- Grid de productos -->
-    <div class="flex-1 overflow-y-auto pr-0.5">
+    <div ref="scroller" class="flex-1 overflow-y-auto pr-0.5" @scroll.passive="onScroll">
       <div class="grid gap-[11px]" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr))">
         <button
           v-for="p in products"
@@ -234,6 +267,7 @@ async function confirmarPeso() {
         </button>
       </div>
       <p v-if="products.length === 0" class="px-2 py-8 text-sm text-faint">Sin resultados.</p>
+      <p v-else-if="cargandoMas" class="px-2 py-4 text-center text-xs text-faint">Cargando más…</p>
     </div>
   </div>
 
