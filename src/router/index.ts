@@ -23,10 +23,16 @@ const router = createRouter({
     { path: "/cierre", name: "cierre", component: () => import("@/views/CierreView.vue") },
     { path: "/devolucion", name: "devolucion", component: () => import("@/views/DevolucionView.vue") },
     { path: "/estado", name: "estado", component: () => import("@/views/EstadoView.vue") },
+    // ⚠️ SPIKE Fase 0 (feature/pos-repuestos-spike): prototipo de UX, datos mock.
+    // QUITAR antes de mergear — se reemplaza por el perfil real (pos_profile).
+    { path: "/spike/parts", name: "spike-parts", component: () => import("@/views/spike/PartsPosSpike.vue") },
   ],
 });
 
 router.beforeEach(async (to) => {
+  // ⚠️ SPIKE: el prototipo se ve sin vincular/sesión. QUITAR antes de mergear.
+  if (to.name === "spike-parts") return true;
+
   const terminal = useTerminalStore();
   const sync = useSyncStore();
   if (!terminal.loaded) {
