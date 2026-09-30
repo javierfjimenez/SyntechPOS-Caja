@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code: settings.json se comparte, el local no
+/.claude/settings.local.json
