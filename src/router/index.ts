@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 
+import { bootWithRetry } from "@/lib/boot";
 import { useCashierStore } from "@/stores/cashier";
 import { useEcfStore } from "@/stores/ecf";
 import { useOutboxStore } from "@/stores/outbox";
@@ -30,8 +31,17 @@ router.beforeEach(async (to) => {
   const terminal = useTerminalStore();
   const sync = useSyncStore();
   if (!terminal.loaded) {
-    await terminal.load();
-    await sync.load();
+    // El IPC de Tauri y el plugin de SQLite pueden no estar listos en el primer
+    // tick. Antes, ese fallo transitorio rechazaba el guard, vue-router abortaba
+    // la navegación y la caja quedaba EN BLANCO hasta recargar a mano.
+    const arrancó = await bootWithRetry(async () => {
+      await terminal.load();
+      await sync.load();
+    });
+
+    // Agotados los reintentos: se deja pasar y App.vue enseña el error. Nunca
+    // una ventana vacía — la cajera tiene que poder leer qué pasó (regla #1).
+    if (!arrancó) return true;
   }
 
   if (!terminal.linked) {

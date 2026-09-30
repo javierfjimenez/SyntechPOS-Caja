@@ -2,6 +2,18 @@
 
 > Memoria viva del repo de caja. Lo más reciente arriba. El estado del producto completo vive en `SyntechPOS/docs/ESTADO.md`.
 
+## 2026-07-21 — Endurecimiento de arranque, revocación e identidad de caja
+
+Rama `feature/caja-arranque-revocacion-identidad`. Tres correcciones/mejoras salidas de la prueba manual de Javier:
+
+- **`e0e97a8` fix(infra): arranque resiliente y splash** — la caja se quedaba en blanco al abrir (había que recargar a mano). Causa: el guard del router cargaba la base (asíncrono, con migraciones la 1a vez) sin manejo de error; cualquier fallo transitorio del IPC/SQLite rechazaba la navegación → ventana vacía. Ahora `src/lib/boot.ts` reintenta con backoff corto y, si agota, `App.vue` muestra el error en vez de vacío. Además, splash de marca mientras resuelve la primera navegación (quita el destello del fondo antes del login).
+- **`764b1fd` fix(sync): la revocación sobrevive al reinicio** — `markRevoked` solo marcaba en memoria y `load()` no lo leía: al reiniciar, la caja arrancaba con el token muerto, parecía sana y no había cómo re-vincular. Ahora `revoked` se persiste en `catalog_meta`. Límite conocido (offline-first): si se revoca con la caja apagada, se detecta en la 1a llamada de fondo tras encender, no antes del login.
+- **`e3d80cd` feat(ui): negocio y caja en el login** — el login no mostraba a qué negocio/caja se entraba. Ahora encabezado con el negocio (color de marca) + sucursal · caja, sobre el teclado de PIN.
+
+Tests: 218 verde (7 nuevos: 4 de arranque, 3 de revocación). Typecheck limpio.
+
+Pendiente relacionado: opción manual "desvincular esta caja" (re-vincular sin que el servidor haya revocado, p. ej. mover el equipo de negocio) — hoy no hay entrada manual a `/vincular`.
+
 ## 📍 AHORA
 
 - **Fase actual**: FASE 4 — POS de caja — **TODAS las tareas construidas**

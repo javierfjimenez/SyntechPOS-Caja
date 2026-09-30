@@ -9,6 +9,7 @@ import TecladoNumerico from "@/components/ui/TecladoNumerico.vue";
 import { getDb } from "@/db";
 import { useCashierStore } from "@/stores/cashier";
 import { useSessionStore } from "@/stores/session";
+import { useTerminalStore } from "@/stores/terminal";
 
 /**
  * Pantalla 2 — Login de cajero (ui-caja.md §3). El PIN identifica al cajero
@@ -17,6 +18,12 @@ import { useSessionStore } from "@/stores/session";
 const router = useRouter();
 const cashier = useCashierStore();
 const session = useSessionStore();
+const terminal = useTerminalStore();
+
+/** Sucursal · Caja — para saber A QUÉ caja se está entrando antes del PIN */
+const ubicacion = computed(() =>
+  [terminal.branchName, terminal.terminalName].filter(Boolean).join(" · "),
+);
 
 const MAX_PIN = 6;
 const MIN_PIN = 4;
@@ -107,6 +114,12 @@ onUnmounted(() => {
 
     <main class="flex flex-1 items-center justify-center gap-12">
       <div class="flex flex-col items-center gap-5">
+        <!-- Identidad de la caja: a qué negocio/sucursal se entra, ANTES del PIN -->
+        <div v-if="terminal.businessName" class="flex flex-col items-center gap-1">
+          <span class="text-xl font-bold text-primary">{{ terminal.businessName }}</span>
+          <span v-if="ubicacion" class="text-sm text-text-dim">{{ ubicacion }}</span>
+        </div>
+
         <h1 class="text-2xl font-bold text-text">Ingresa tu PIN</h1>
 
         <div class="flex gap-3" aria-label="PIN">

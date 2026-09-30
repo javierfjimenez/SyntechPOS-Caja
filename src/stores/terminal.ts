@@ -42,6 +42,7 @@ interface TerminalState {
 const META_KEYS = [
   "api_token",
   "hmac_secret",
+  "revoked",
   "terminal_id",
   "terminal_name",
   "branch_name",
@@ -98,6 +99,9 @@ export const useTerminalStore = defineStore("terminal", {
       // Tema white-label (D26): aplicar el guardado al arrancar (offline)
       applyTheme(resolveTheme({ primary: meta.theme_primary, primary_hi: meta.theme_primary_hi }));
       this.linked = this.token !== null;
+      // La revocación DEBE sobrevivir al reinicio: si no, la caja arranca con un
+      // token muerto, parece vinculada y entra al login sin salida a re-vincular.
+      this.revoked = meta.revoked === "1";
       this.loaded = true;
     },
 
@@ -120,6 +124,7 @@ export const useTerminalStore = defineStore("terminal", {
       await setMeta("terminal_name", result.terminal.name);
       await setMeta("branch_name", result.terminal.branch ?? "");
       await setMeta("business_name", result.terminal.business ?? "");
+      await setMeta("revoked", "0"); // re-vinculación exitosa: limpia el flag persistido
       this.token = result.token;
       this.terminalName = result.terminal.name;
       this.branchName = result.terminal.branch;
@@ -167,6 +172,8 @@ export const useTerminalStore = defineStore("terminal", {
     markRevoked() {
       this.revoked = true;
       this.online = false;
+      // Persistir: la revocación tiene que sobrevivir al reinicio (ver load())
+      void setMeta("revoked", "1");
     },
 
     /** El servidor informó su mínimo (ping o respuesta de eventos) */
